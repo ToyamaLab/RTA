@@ -1,0 +1,49 @@
+<%- include('./layouts/header') %>
+
+<div class="content-wrapper">
+  <div class="container-fluid">
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="fa fa-table"></i>
+        <%= tbname %>
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-bordered table-striped" elc-js="SelectResultTbl" width="100%" id="dataTable" cellspacing="0">
+            <thead>
+              <tr>
+                <% fields.forEach(function(field) { %>
+                <th><%= field.name %></th>
+                <% }); %>
+              </tr>
+            </thead>
+            <tfoot>
+              <tr>
+                <% fields.forEach(function(field) { %>
+                <th><%= field.name %></th>
+                <% }); %>
+              </tr>
+            </tfoot>
+            <tbody>
+              <% rows.forEach(function(row) { %>
+                <tr>
+                  <% fields.forEach(function(field) { %>
+                  <td><%= row[field.name] %></td>
+                  <% }); %>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer small text-muted">
+        Updated yesterday at 11:59 PM
+      </div>
+    </div>
+
+  </div>
+  <!-- /.container-fluid -->
+</div>
+<!-- /.content-wrapper -->
+
+<%- include('./layouts/footer') %>

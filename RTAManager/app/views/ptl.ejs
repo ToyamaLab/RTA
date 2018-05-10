@@ -1,0 +1,50 @@
+<%- include('./layouts/header') %>
+
+<div class="content-wrapper">
+  <div class="container-fluid">
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="fa fa-table"></i>
+         Public Table Library
+      </div>
+      <div class="card-body">
+        <div class="table-responsive">
+          <table class="table table-striped" elc-js="SelectResultTbl" width="100%" id="dataTable" cellspacing="0">
+            <thead>
+              <tr>
+                <th>Access Name</th>
+                <th>Description</th>
+                <th>Detail</th>
+                <th>Download</th>
+              </tr>
+            </thead>
+            <tfoot>
+                <th>Access Name</th>
+                <th>Description</th>
+                <th>Detail</th>
+                <th>Download</th>
+            </tfoot>
+            <tbody>
+              <% rows.forEach(function(row) { %>
+                <tr>
+                  <td><%= row['access_name'] %></td>
+                  <td><%= row['description'] %></td>
+                  <td><a href="./ptl/detail/<%= row['id'] %>">Detail</a></td>
+                  <td><a href="./ptl/download/<%= row['id'] %>">Download</a></td>
+                </tr>
+              <% }); %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="card-footer small text-muted">
+        Updated yesterday at 11:59 PM
+      </div>
+    </div>
+
+  </div>
+  <!-- /.container-fluid -->
+</div>
+<!-- /.content-wrapper -->
+
+<%- include('./layouts/footer') %>

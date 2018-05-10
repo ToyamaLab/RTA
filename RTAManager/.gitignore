@@ -1,0 +1,5 @@
+.DS_Store
+.*.swp
+node_modules/
+RTA Manager-win32-x64/
+RTA Manager-darwin-x64/

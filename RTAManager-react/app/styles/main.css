@@ -1,0 +1,14 @@
+/* Project uses CSSNEXT (CSS4) - http://cssnext.io/features/ via postcss */
+@import '/components/variables.css';
+@import '/components/base.css';
+@import '/components/type.css';
+@import '/components/navbar.css';
+@import '/components/buttons.css';
+@import '/components/forms.css';
+@import '/components/helpers.css';
+
+@import '/bootstrap/css/bootstrap.min.css';
+/* @import '/font-awesome/css/font-awesome.min.css'; */
+@import '/datatables/dataTables.bootstrap4.css';
+@import '/sb-admin.css';
+@import '../../node_modules/react-bootstrap-table/dist/react-bootstrap-table-all.min.css';

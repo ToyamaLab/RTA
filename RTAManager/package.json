@@ -1,0 +1,46 @@
+{
+    "title": "RTA Manager",
+    "name": "rtamanager",
+    "version": "1.0.0",
+    "main": "app.js",
+    "description": "Download .rta file, browse remote table.",
+    "homepage": "http://spacia.db.ics.keio.ac.jp/PTL",
+    "license": "MIT",
+    "author": "Shu Murakami",
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/shu22203/RTA.git"
+    },
+    "dependencies": {
+        "body-parser": "^1.18.1",
+        "bootstrap": "^4.0.0-beta",
+        "chart.js": "2.6.0",
+        "cookie-parser": "^1.4.3",
+        "crypto": "^1.0.1",
+        "datatables.net-bs4": "1.10.15",
+        "debug": "^3.0.1",
+        "ejs": "^2.5.7",
+        "express": "^4.15.4",
+        "font-awesome": "4.7.0",
+        "fs-extra": "^4.0.2",
+        "jquery": "^3.2.1",
+        "jquery.easing": "^1.4.1",
+        "morgan": "^1.8.2",
+        "mysql": "^2.14.1",
+        "pg-promise": "^6.8.0",
+        "popper.js": "1.12.3",
+        "serve-favicon": "^2.4.4"
+    },
+    "devDependencies": {
+        "browser-sync": "2.18.13",
+        "electron-connect": "^0.6.2",
+        "electron-packager": "^9.1.0",
+        "electron-prebuilt": "^1.4.13",
+        "gulp": "^3.9.1",
+        "gulp-clean-css": "3.7.0",
+        "gulp-header": "1.8.9",
+        "gulp-rename": "^1.2.2",
+        "gulp-sass": "^3.1.0",
+        "gulp-uglify": "3.0.0"
+    }
+}
