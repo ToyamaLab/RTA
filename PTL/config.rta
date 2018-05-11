@@ -1,0 +1,5 @@
+driver=sqlite
+host=localhost
+db=./db/sample.db
+tmp_db=./db/tmp.db
+

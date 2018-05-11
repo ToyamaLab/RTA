@@ -13,7 +13,7 @@ $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 $dbms = $row['dbms'] == 'postgresql' ? 'pgsql' : $row['dbms'];
 $con = connectDB($dbms, $row['host'], $row["user_name"], $row["password"], $row["db_name"]);
-$sql2 = 'SELECT * FROM ' . $row['table_name'] . ' LIMIT 50000';
+$sql2 = 'SELECT * FROM ' . $row['table_name'] . ' LIMIT 10000';
 $stmt2 = $con->prepare($sql2);
 $stmt2->execute(array());
 $rows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
