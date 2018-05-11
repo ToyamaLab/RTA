@@ -1,8 +1,10 @@
 package rtaclient.db;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 
-import rtaclient.common.*;
+import rtaclient.common.GlobalEnv;
 
 public class DBConnect {
 
@@ -55,6 +57,7 @@ public class DBConnect {
 
     public static Connection connectLibrary() {
         String url = createDBURL("postgresql", "131.113.101.113", "rta_databases");
+        System.out.println("url:"+url);
         return connect(url, "shu", "shu");
     }
 

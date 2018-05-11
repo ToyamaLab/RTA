@@ -1,32 +1,52 @@
 package rtaclient.parser;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import rtaclient.common.GlobalEnv;
-import rtaclient.TableConnector;
-import rtaclient.common.*;
-import rtaclient.db.DBConnect;
-
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.sql.*;
-import java.io.FileNotFoundException;
-import java.util.List;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.regex.*;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+
 import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.conditional.*;
-import net.sf.jsqlparser.expression.operators.relational.*;
+import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
 import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.schema.*;
-import net.sf.jsqlparser.statement.select.*;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Join;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectBody;
+import net.sf.jsqlparser.statement.select.SelectExpressionItem;
+import net.sf.jsqlparser.statement.select.SelectItem;
+import net.sf.jsqlparser.statement.select.SetOperationList;
+import net.sf.jsqlparser.statement.select.SubJoin;
+import net.sf.jsqlparser.statement.select.SubSelect;
+import rtaclient.TableConnector;
+import rtaclient.common.GlobalEnv;
+import rtaclient.common.Log;
+import rtaclient.db.DBConnect;
 
 public class Parser {
 
@@ -51,6 +71,8 @@ public class Parser {
         Matcher m = p.matcher(original_query);
 
         // 先頭の#と末尾の半角スペースを消す
+        // TODO:remoteConnectorがテーブル毎に出来ているので変更
+        // where句を見て、色々決めるように変更したい
         while (m.find()) {
             String str = m.group();
             if (str != null && str.length() > 0) {
@@ -59,12 +81,10 @@ public class Parser {
                 if (tc == null) {
                     return -1;
                 } else {
-                    tc.setAccessName(str);
                     remoteConnector.add(tc);
                 }
             }
         }
-
         original_query = original_query.replace("#", "");
 
         // Parse
@@ -168,7 +188,7 @@ public class Parser {
                 boolean alreadyExists = false;
                 // remoteConnectorに同じアクセス名があったらFromItemを追加
                 for (TableConnector tc : remoteConnector) {
-                    if (tc.getAccessName().equals(tb.getName())) {
+                    if (tc.getAccessNames().get(0).equals(tb.getName())) {
                         for (FromItem f : tc.getFromItems()) {
                             Table t = (Table) f;
                             if (t.getName().equals(tb.getName())) {
@@ -394,7 +414,7 @@ public class Parser {
                     break;
 
                 default:
-                    Log.out("Expression " + ex.getClass().getSimpleName() + " isn't supported.");
+                    System.out.println("Expression " + ex.getClass().getSimpleName() + " isn't supported.");
                     break;
             }
         }
@@ -463,19 +483,19 @@ public class Parser {
 
         if (!dir.exists()) {
             if(!dir.mkdirs()) {
-                Log.out("Fail to create RTA directory.\n");
+                System.out.println("Fail to create RTA directory.\n");
             }
         }
 
         if (file.exists()) {
             FileReader rtaFile = new FileReader(filePath);
-            Log.out(accessName + ".rta found in " + filePath);
+            System.out.println(accessName + ".rta found in " + filePath);
             TableConnector tc = mapper.readValue(rtaFile, TableConnector.class);
             rtaFile.close();
             return tc;
         }
 
-        Log.out(accessName + ".rta does not found.");
+        System.out.println(accessName + ".rta does not found.");
         Connection con;
         PreparedStatement pstmt;
         ResultSet rs;
@@ -494,10 +514,11 @@ public class Parser {
 
             );
             String json = mapper.writeValueAsString(tc);
+            System.out.println(json);
             FileWriter filewriter = new FileWriter(filePath);
             filewriter.write(json);
             filewriter.close();
-            Log.out("Download " + accessName + ".rta in " + filePath);
+            System.out.println("Download " + accessName + ".rta in " + filePath);
 
         } else {
             System.out.println("Access name " + accessName + " doesn't exist.");

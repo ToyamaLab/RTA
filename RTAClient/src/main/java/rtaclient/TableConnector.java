@@ -1,12 +1,15 @@
 package rtaclient;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import net.sf.jsqlparser.expression.Expression;
-import net.sf.jsqlparser.statement.select.*;
-
 import java.util.ArrayList;
 import java.util.List;
+
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
 
 @JsonIgnoreProperties(value = {"connector", "fromItems", "selectItems", "where", "select", "sql", "selectItem"}, ignoreUnknown=true)
 public class TableConnector {
@@ -16,10 +19,10 @@ public class TableConnector {
     private String password;
     @JsonProperty("dbname")
     private String dbName;
-    @JsonProperty("tbname")
-    private String tbName;
-    @JsonProperty("accessname")
-    private String accessName;
+    @JsonProperty("tbnames")
+    private List<String> tbNames = new ArrayList<String>();
+    @JsonProperty("accessnames")
+    private List<String> accessNames = new ArrayList<String>();
     @JsonProperty("accessmethod")
     private String accessMethod;
 
@@ -50,8 +53,8 @@ public class TableConnector {
         this.user = user;
         this.password = password;
         this.dbName = dbName;
-        this.tbName = tbName;
-        this.accessName = accessName;
+        this.tbNames.add(tbName);
+        this.accessNames.add(accessName);
         this.accessMethod = accessMethod;
     }
 
@@ -68,7 +71,7 @@ public class TableConnector {
     }
 
     public void setAccessName(String accessName) {
-        this.accessName = accessName;
+        this.accessNames.add(accessName);
     }
 
     public void setUser(String user) {
@@ -95,6 +98,37 @@ public class TableConnector {
         this.where = where;
     }
 
+    public void setTables(List<String> tbNames) {
+        this.tbNames = tbNames;
+    }
+
+    public void addTables(List<String> tbNames) {
+        for(int i=0;i<tbNames.size();i++){
+        	this.tbNames.add(tbNames.get(i));
+        }
+    }
+    public void addTable(String tbName) {
+        this.tbNames.add(tbName);
+    }
+
+    public void addAccessName(String accessName) {
+    	this.accessNames.add(accessName);
+    }
+
+    public void addAccessNames(List<String> accessNames) {
+    	for(int i=0;i<accessNames.size();i++){
+        	this.accessNames.add(accessNames.get(i));
+        }
+    }
+
+    public List<String> getTables() {
+        return tbNames;
+    }
+
+    public Select getSelect() {
+        return select;
+    }
+
     public String getDBMS() {
         return dbms;
     }
@@ -107,8 +141,8 @@ public class TableConnector {
         return dbName;
     }
 
-    public String getAccessName() {
-        return accessName;
+    public List<String> getAccessNames() {
+        return accessNames;
     }
 
     public String getUser() {
