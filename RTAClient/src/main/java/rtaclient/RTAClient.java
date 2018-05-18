@@ -38,7 +38,7 @@ public class RTAClient {
     public static void main(String[] args) throws IOException {
         GlobalEnv.setGlobalEnv(args);
 
-        Log.setLog(0 /* 0: Hide, 1: Show */);
+        Log.setLog(1 /* 0: Hide, 1: Show */);
 
         Scanner scan = new Scanner(System.in);
         do {

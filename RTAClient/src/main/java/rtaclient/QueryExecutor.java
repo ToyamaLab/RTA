@@ -316,6 +316,9 @@ public class QueryExecutor {
                         case "java.lang.Float":
                             sql += rsmd.getColumnName(i) + " float, ";
                             break;
+                        case "java.lang.Double":
+                            sql += rsmd.getColumnName(i) + " float8, ";
+                            break;
                         // とりあえず
                         case "java.math.BigDecimal":
                             sql += rsmd.getColumnName(i) + " decimal, ";
@@ -468,6 +471,9 @@ public class QueryExecutor {
                         ps.setString(i, rs.getString(rsmd.getColumnName(i)));
                         break;
                     case "FLOAT":
+                        ps.setFloat(i, rs.getFloat(rsmd.getColumnName(i)));
+                        break;
+                    case "FLOAT8":
                         ps.setFloat(i, rs.getFloat(rsmd.getColumnName(i)));
                         break;
                     case "BIGDECIMAL":
