@@ -418,9 +418,9 @@ public class Parser {
         if (leftIsColumn) leftIndex = getMatchRemoteIndex((Column) ex.getLeftExpression());
         if (rightIsColumn) rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression());
 
-        if (!leftIsColumn && rightIsColumn) {
+        if (!leftIsColumn && rightIsColumn && rightIndex!=-1) {
             remoteConnector.get(rightIndex).setWhere(ex);
-        } else if (leftIsColumn && !rightIsColumn) {
+        } else if (leftIsColumn && !rightIsColumn && leftIndex!=-1 ) {
             remoteConnector.get(leftIndex).setWhere(ex);
         } else if (leftIsColumn && rightIsColumn) {
             if (leftIndex < 0 || rightIndex < 0) {
@@ -428,6 +428,7 @@ public class Parser {
                 remoteConnector.get(leftIndex).setWhere(ex);
             }
         }
+       
         return 1;
     }
 
@@ -451,7 +452,7 @@ public class Parser {
         }
         return -1;
     }
-
+    
     public TableConnector searchConnector(String accessName) throws SQLException, FileNotFoundException, IOException {
         String home = GlobalEnv.USER_HOME;
         String OS_FS = GlobalEnv.OS_FS;
