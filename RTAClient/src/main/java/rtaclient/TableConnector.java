@@ -3,6 +3,7 @@ package rtaclient;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.statement.select.*;
 
 import java.util.ArrayList;
@@ -94,6 +95,15 @@ public class TableConnector {
     public void setWhere(Expression where) {
         this.where = where;
     }
+    
+    public void addWhere(Expression where){
+    	if(this.where == null){
+    		this.where = where;
+    	}else{
+    		OrExpression orExp = new OrExpression(this.where, where);
+    		this.where = orExp;
+    	}
+    }
 
     public String getDBMS() {
         return dbms;
@@ -120,7 +130,7 @@ public class TableConnector {
     }
 
     public String getSQL() {
-        return select.toString();
+    	return select.toString();
     }
 
     public List<FromItem> getFromItems() {

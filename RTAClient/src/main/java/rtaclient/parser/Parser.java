@@ -419,13 +419,13 @@ public class Parser {
         if (rightIsColumn) rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression());
 
         if (!leftIsColumn && rightIsColumn && rightIndex!=-1) {
-            remoteConnector.get(rightIndex).setWhere(ex);
+            remoteConnector.get(rightIndex).addWhere(ex);
         } else if (leftIsColumn && !rightIsColumn && leftIndex!=-1 ) {
-            remoteConnector.get(leftIndex).setWhere(ex);
+            remoteConnector.get(leftIndex).addWhere(ex);
         } else if (leftIsColumn && rightIsColumn) {
             if (leftIndex < 0 || rightIndex < 0) {
             } else if (leftIndex == rightIndex) {
-                remoteConnector.get(leftIndex).setWhere(ex);
+                remoteConnector.get(leftIndex).addWhere(ex);
             }
         }
        
