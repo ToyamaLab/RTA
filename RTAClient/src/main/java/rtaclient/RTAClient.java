@@ -21,6 +21,7 @@ import rtaclient.parser.Parser;
 import rtaclient.QueryExecutor;
 
 import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.Alias;
 import net.sf.jsqlparser.statement.select.*;
 import net.sf.jsqlparser.schema.*;
 
@@ -76,10 +77,6 @@ public class RTAClient {
                 continue;
             }
 
-            // テーブル名に使用する日付を取得
-            Date date = new Date();
-            SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
-            tmpdate = sdf.format(date);
 
             try {
                 parser = new Parser();
@@ -110,6 +107,10 @@ public class RTAClient {
             List<TableConnector> remoteConnector = parser.getRemoteConnector();
             for (TableConnector tc : remoteConnector) {
                 try {
+                    // テーブル名に使用する日付を取得
+                	Date date = new Date();
+                    SimpleDateFormat sdf = new SimpleDateFormat("yyMMddHHmmss");
+                    tmpdate = sdf.format(date);
                     // true -> WebService, false -> Directly
                     Boolean getFromWebService = false;
                     if (getFromWebService) {
@@ -135,10 +136,11 @@ public class RTAClient {
                         rs_remote = ps_remote.executeQuery();
                         QueryExecutor.insertFromResultSet(tc.getDBMS(), con_tmp, rs_remote, tmpdate, false /* 一時的な結果 */);
                     }
-
+                    
                     // Add timestamp to finalSelect Table Name
                     Table table = (Table) tc.getFromItems().get(0);
-                    changeTableTimestamp(parser.getOriginalSelect().getSelectBody(), table.getName());
+                    changeTableTimestamp(parser.getOriginalSelect().getSelectBody(), table.getName(), table.getAlias());
+                    
 
                 } catch (SQLException e) {
                     System.out.println("Error executing Remote query:");
@@ -186,13 +188,13 @@ public class RTAClient {
 
     }
 
-    public static void changeTableTimestamp(SelectBody sb, String tbName) {
+    public static void changeTableTimestamp(SelectBody sb, String tbName, Alias tbAlias) {
         switch (sb.getClass().getSimpleName()) {
             case "SetOperationList":
                 SetOperationList sol = (SetOperationList) sb;
                 List<SelectBody> sbs = sol.getSelects();
                 for (SelectBody selectBody : sbs) {
-                    changeTableTimestamp(selectBody, tbName);
+                    changeTableTimestamp(selectBody, tbName, tbAlias);
                 }
                 break;
 
@@ -202,7 +204,7 @@ public class RTAClient {
                 Table tb = (Table) pl.getFromItem();
                 List<Join> joins = pl.getJoins();
 
-                if (tbName.equals(tb.getName())) {
+                if (tbName.equals(tb.getName()) && tbAlias.equals(tb.getAlias())) {
                     tb.setName(tb.getName() + "_" + tmpdate);
                     // PostgreSQLの場合schemaをset
                     if (GlobalEnv.getDriver().equals("postgresql")) {
@@ -213,7 +215,7 @@ public class RTAClient {
                 if (joins != null) {
                     for (Join j : joins) {
                         Table t = (Table) j.getRightItem();
-                        if (tbName.equals(t.getName())) {
+                        if (tbName.equals(t.getName()) && tbAlias.equals(t.getAlias())) {
                             t.setName(t.getName() + "_" + tmpdate);
                             // PostgreSQLの場合schemaをset
                             if (GlobalEnv.getDriver().equals("postgresql")) {

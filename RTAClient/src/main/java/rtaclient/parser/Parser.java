@@ -52,10 +52,10 @@ public class Parser {
 
         // 先頭の#と末尾の半角スペースを消す
         while (m.find()) {
-            String str = m.group();
+            String str = m.group();  // strは#postal_codeとか
             if (str != null && str.length() > 0) {
-                str = str.substring(1, str.length() - 1);
-                TableConnector tc = searchConnector(str);
+                str = str.substring(1, str.length() - 1);  //#postal_code → postal_code
+                TableConnector tc = searchConnector(str);  //TableConnectorはtableの情報，dbmsとかhostとか
                 if (tc == null) {
                     return -1;
                 } else {
@@ -177,11 +177,11 @@ public class Parser {
                         }
                         if (!alreadyExists) {
                             tc.addFromItems(tb);
+                            remoteFound = true;
+                            break;
                         }
-
-                        remoteFound = true;
-                        break;
                     }
+                    alreadyExists = false;
                 }
                 if (!remoteFound) {
                     switch (GlobalEnv.getDriver()) {
