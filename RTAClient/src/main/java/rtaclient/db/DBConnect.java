@@ -9,6 +9,7 @@ public class DBConnect {
     public static Connection connect(String host, String user, String password) {
 
         Connection con = null;
+        System.out.println(host);
 
         try {
             con = DriverManager.getConnection(host, user, password);
@@ -86,6 +87,7 @@ public class DBConnect {
         if (db_name != null) url += "/" + db_name;
         // TODO: 指定した文字コードで接続出来るようにする
         url += "?useUnicode=true&characterEncoding=utf8";
+        System.out.println(url);
         return url;
     }
 }

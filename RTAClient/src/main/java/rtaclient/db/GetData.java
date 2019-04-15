@@ -10,6 +10,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLEncoder;
 
+import org.apache.jena.query.Query;
+import org.apache.jena.query.QueryExecution;
+import org.apache.jena.query.QueryExecutionFactory;
+import org.apache.jena.query.QueryFactory;
+import org.apache.jena.query.ResultSet;
+
 public class GetData {
     public static String fromSQL(String sql, String accessName) {
         // TODO: accessNameを無くてもテーブル名が取得できるようにkosakaに変えてもらう
@@ -53,6 +59,14 @@ public class GetData {
             e.printStackTrace();
             return stringBuilder.toString();
         }
+    }
+    
+    public static ResultSet fromSparql(String queryString,String endpoint){
+   	 Query query = QueryFactory.create(queryString);
+			QueryExecution qexec = QueryExecutionFactory
+					.sparqlService(endpoint, query);
+			ResultSet rs = qexec.execSelect();
+   	 return rs;
     }
 
     public static String urlEncode(String str, String enc) {

@@ -3,8 +3,10 @@ package rtaclient;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 
+import org.apache.jena.query.QuerySolution;
 
 import rtaclient.common.GlobalEnv;
 import rtaclient.common.Log;
@@ -13,483 +15,592 @@ import rtaclient.db.DBConnect;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import net.sf.jsqlparser.expression.CaseExpression;
+
+
 public class QueryExecutor {
 
-    // tmpDBが存在していなかったら作成
-    public static void createTmp() throws SQLException {
-        Connection con = DBConnect.connectLocal();
-        String tmpDB = GlobalEnv.getTmpdb();
-        String dbms = GlobalEnv.getDriver();
-        String sql = "";
-        switch (dbms) {
-            case "mysql":
-                sql = "CREATE DATABASE IF NOT EXISTS " + tmpDB + " CHARACTER SET utf8";
-                break;
 
-            case "postgresql":
-                sql = "CREATE SCHEMA IF NOT EXISTS " + tmpDB;
-                break;
+	/**tmpDBが存在していなかったら作成*/
+	public static void createTmp() throws SQLException {
+		Connection con = DBConnect.connectLocal();
+		String tmpDB = GlobalEnv.getTmpdb();
+		String dbms = GlobalEnv.getDriver();
+		String sql = "";
+		switch (dbms) {
+		case "mysql":
+			sql = "CREATE DATABASE IF NOT EXISTS " + tmpDB + " CHARACTER SET utf8";
+			break;
 
-            case "sqlite":
-                // do nothing
-                return;
+		case "postgresql":
+			sql = "CREATE SCHEMA IF NOT EXISTS " + tmpDB;
+			break;
 
-            default:
-                System.out.println("Sorry, " + dbms + " is not supported yet.");
-        }
-        PreparedStatement ps = con.prepareStatement(sql);
-        ps.executeUpdate();
-        DBConnect.close(con);
-    }
+		case "sqlite":
+			// do nothing
+			return;
 
-    public static void insertFromJson(String dbms, String rs_json, String tmpdate, Boolean original) throws SQLException {
+		default:
+			System.out.println("Sorry, " + dbms + " is not supported yet.");
+		}
+		PreparedStatement ps = con.prepareStatement(sql);
+		ps.executeUpdate();
+		DBConnect.close(con);
+	}
 
-        Connection con = null;
-        // psqlの場合は同一dbms内で別schemaに繋ぐため
-        switch (GlobalEnv.getDriver()) {
-            case "mysql":
-                con = DBConnect.connectLocalTmp();
-                break;
-            case "postgresql":
-                con = DBConnect.connectLocal();
-                break;
-        }
+	public static void insertFromJson(String dbms, String rs_json, String tmpdate, Boolean original) throws SQLException {
 
-        PreparedStatement ps;
+		Connection con = null;
+		// psqlの場合は同一dbms内で別schemaに繋ぐため
+		switch (GlobalEnv.getDriver()) {
+		case "mysql":
+			con = DBConnect.connectLocalTmp();
+			break;
+		case "postgresql":
+			con = DBConnect.connectLocal();
+			break;
+		}
 
-        // JSONの解析
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode root = null;
-        try {
-            root = mapper.readTree(rs_json);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+		PreparedStatement ps;
 
-        String tableName = root.get("table_name").asText();
-        root.get("table_name").fieldNames();
+		// JSONの解析
+		ObjectMapper mapper = new ObjectMapper();
+		JsonNode root = null;
+		try {
+			root = mapper.readTree(rs_json);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
 
-        // SQL前半部
-        String createSQL = "CREATE TABLE ";
-        String insertSQL = "INSERT INTO ";
+		String tableName = root.get("table_name").asText();
+		root.get("table_name").fieldNames();
 
-        switch (GlobalEnv.getDriver()) {
-            case "mysql":
-                if (original) {
-                    createSQL += "result_" + tmpdate + " (";
-                    insertSQL += "result_" + tmpdate + " (";
-                } else {
-                    createSQL += tableName + "_" + tmpdate + " (";
-                    insertSQL += tableName + "_" + tmpdate + " (";
-                }
+		// SQL前半部
+		String createSQL = "CREATE TABLE ";
+		String insertSQL = "INSERT INTO ";
 
-                break;
-            case "postgresql":
-            case "sqlite":
-                if (original) {
-                    createSQL += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
-                    insertSQL += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
-                } else {
-                    createSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
-                    insertSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
-                }
+		switch (GlobalEnv.getDriver()) {
+		case "mysql":
+			if (original) {
+				createSQL += "result_" + tmpdate + " (";
+				insertSQL += "result_" + tmpdate + " (";
+			} else {
+				createSQL += tableName + "_" + tmpdate + " (";
+				insertSQL += tableName + "_" + tmpdate + " (";
+			}
 
-                break;
+			break;
+		case "postgresql":
+		case "sqlite":
+			if (original) {
+				createSQL += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
+				insertSQL += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
+			} else {
+				createSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
+				insertSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
+			}
 
-            default:
-                break;
-        }
+			break;
 
-        Iterator<Map.Entry<String, JsonNode>> metaFields = root.get("metadata").fields();
-        while (metaFields.hasNext()) {
-            Map.Entry<String, JsonNode> metaField = metaFields.next();
-            // TODO: DBMSで分岐
-            Log.out(metaField.getValue().asText());
-            switch (metaField.getValue().asText()) {
-                case "int":
-                case "int4":
-                    createSQL += metaField.getKey() + " int, ";
-                    break;
-                case "bigint":
-                case "int8":
-                    if (metaField.getKey().equals("COUNT(*)")) {
-                        createSQL += "count bigint, ";
-                    } else if (metaField.getKey().matches("^SUM.*")) {
-                        createSQL += "double bigint, ";
-                    } else {
-                        createSQL += metaField.getKey() + " bigint, ";
-                    }
-                    break;
-                case "varchar":
-                    createSQL += metaField.getKey() + " varchar(255), ";
-                    break;
-                case "float":
-                case "numeric":
-                    createSQL += metaField.getKey() + " float, ";
-                    break;
-                case "decimal":
-                    createSQL += metaField.getKey() + " decimal, ";
-                    break;
-                default:
-                    createSQL += metaField.getKey() + " " + metaField.getValue().asText() + " ";
-                    break;
-            }
+		default:
+			break;
+		}
 
-//            if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-//                sql2 += "count, ";
-//            } else {
-            insertSQL += metaField.getKey() + ", ";
-//            }
-        }
+		Iterator<Map.Entry<String, JsonNode>> metaFields = root.get("metadata").fields();
+		while (metaFields.hasNext()) {
+			Map.Entry<String, JsonNode> metaField = metaFields.next();
+			// TODO: DBMSで分岐
+			Log.out(metaField.getValue().asText());
+			switch (metaField.getValue().asText()) {
+			case "int":
+			case "int4":
+				createSQL += metaField.getKey() + " int, ";
+				break;
+			case "bigint":
+			case "int8":
+				if (metaField.getKey().equals("COUNT(*)")) {
+					createSQL += "count bigint, ";
+				} else if (metaField.getKey().matches("^SUM.*")) {
+					createSQL += "double bigint, ";
+				} else {
+					createSQL += metaField.getKey() + " bigint, ";
+				}
+				break;
+			case "varchar":
+				createSQL += metaField.getKey() + " varchar(255), ";
+				break;
+			case "float":
+			case "numeric":
+				createSQL += metaField.getKey() + " float, ";
+				break;
+			case "decimal":
+				createSQL += metaField.getKey() + " decimal, ";
+				break;
+			default:
+				createSQL += metaField.getKey() + " " + metaField.getValue().asText() + ", ";
+				break;
+			}
 
-        createSQL = createSQL.substring(0, createSQL.length() - 2) + ")";
+			//            if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+			//                sql2 += "count, ";
+			//            } else {
+			insertSQL += metaField.getKey() + ", ";
+			//            }
+		}
 
-        insertSQL = insertSQL.substring(0, insertSQL.length() - 2);
-        insertSQL += ") VALUES (";
+		createSQL = createSQL.substring(0, createSQL.length() - 2) + ")";
 
-        Log.out(createSQL);
-        ps = con.prepareStatement(createSQL);
-        ps.executeUpdate();
+		insertSQL = insertSQL.substring(0, insertSQL.length() - 2);
+		insertSQL += ") VALUES (";
 
-        // INSERT INTO
-        for (JsonNode node : root.get("data")) {
-            String tmpSQL = insertSQL;
-            Iterator<Map.Entry<String, JsonNode>> nodeFields = node.fields();
-            while (nodeFields.hasNext()) {
-                Map.Entry<String, JsonNode> nodeField = nodeFields.next();
-                JsonNode jn = nodeField.getValue();
-                if (jn.isTextual()) {
-                    tmpSQL += "'" + nodeField.getValue().asText() + "', ";
-                } else if (jn.isInt()) {
-                    tmpSQL += nodeField.getValue().asInt() + ", ";
-                } else if (jn.isDouble()) {
-                    tmpSQL += nodeField.getValue().asDouble() + ", ";
-                } else if (jn.isFloat()) {
-                    tmpSQL += nodeField.getValue().asDouble() + ", ";
-                } else if (nodeField.getValue().asText().equals("null")) {
-                    tmpSQL += "null, ";
-                }
-            }
-            tmpSQL = tmpSQL.substring(0, tmpSQL.length() - 2) + ")";
-            //  System.out.println(tmpSQL);
-            ps = con.prepareStatement(tmpSQL);
-            ps.executeUpdate();
-        }
-    }
+		Log.out(createSQL);
+		ps = con.prepareStatement(createSQL);
+		ps.executeUpdate();
 
-    // テーブル作成、INSERT処理まで行う
-    public static void insertFromResultSet(String dbms, Connection con, ResultSet rs, String tmpdate, Boolean original) throws SQLException {
+		// INSERT INTO
+		for (JsonNode node : root.get("data")) {
+			String tmpSQL = insertSQL;
+			Iterator<Map.Entry<String, JsonNode>> nodeFields = node.fields();
+			while (nodeFields.hasNext()) {
+				Map.Entry<String, JsonNode> nodeField = nodeFields.next();
+				JsonNode jn = nodeField.getValue();
+				if (jn.isTextual()) {
+					tmpSQL += "'" + nodeField.getValue().asText() + "', ";
+				} else if (jn.isInt()) {
+					tmpSQL += nodeField.getValue().asInt() + ", ";
+				} else if (jn.isDouble()) {
+					tmpSQL += nodeField.getValue().asDouble() + ", ";
+				} else if (jn.isFloat()) {
+					tmpSQL += nodeField.getValue().asDouble() + ", ";
+				} else if (nodeField.getValue().asText().equals("null")) {
+					tmpSQL += "null, ";
+				}
+			}
+			tmpSQL = tmpSQL.substring(0, tmpSQL.length() - 2) + ")";
+			//  System.out.println(tmpSQL);
+			ps = con.prepareStatement(tmpSQL);
+			ps.executeUpdate();
+		}
+	}
 
-//        Connection con = null;
-//        // psqlの場合は同一dbms内で別schemaに繋ぐため
-//        switch (GlobalEnv.getDriver()) {
-//            case "mysql":
-//            case "sqlite":
-//                con = DBConnect.connectLocalTmp();
-//                break;
-//            case "postgresql":
-//                con = DBConnect.connectLocal();
-//                break;
-//        }
+	public static void insertFromSparql(org.apache.jena.query.ResultSet rs, String tmpdate, List<String> columnNames,
+			List<String> columnTypes, String tableName) throws SQLException{
+		Connection con = null;
+		// psqlの場合は同一dbms内で別schemaに繋ぐため
+		switch (GlobalEnv.getDriver()) {
+		case "mysql":
+			con = DBConnect.connectLocalTmp();
+			break;
+		case "postgresql":
+			con = DBConnect.connectLocal();
+			break;
+		}
 
-        PreparedStatement ps;
+		PreparedStatement ps;
 
-        ResultSetMetaData rsmd = rs.getMetaData();
+		String createSQL = "CREATE TABLE ";
+		String insertSQL = "INSERT INTO ";
 
-        // CREATE, INSERTクエリ作成
-        String sql = "CREATE TABLE ";
-        String sql2 = "INSERT INTO ";
+		switch (GlobalEnv.getDriver()) {
+		case "mysql":
+			createSQL += tableName + "_" + tmpdate + " (";
+			insertSQL += tableName + "_" + tmpdate + " (";
+			break;
 
-        switch (GlobalEnv.getDriver()) {
-            case "mysql":
-                if (original) {
-                    sql += "result_" + tmpdate + " (";
-                    sql2 += "result_" + tmpdate + " (";
-                } else {
-                    sql += rsmd.getTableName(1) + "_" + tmpdate + " (";
-                    sql2 += rsmd.getTableName(1) + "_" + tmpdate + " (";
-                }
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    // 取得内容確認
-//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
-//                            rsmd.getColumnName(i),
-//                            rsmd.getColumnTypeName(i),
-//                            rsmd.getColumnClassName(i),
-//                            rsmd.getColumnDisplaySize(i),
-//                            rsmd.getPrecision(i),
-//                            rsmd.getScale(i)
-//                    );
+		case "postgresql":
+		case "sqlite":
+			createSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
+			insertSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
+			break;
 
-                    switch (rsmd.getColumnClassName(i)) {
-                        case "java.lang.Integer":
-                            sql += rsmd.getColumnName(i) + " int, ";
-                            break;
-                        case "java.lang.Double":
-                            if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum double, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " double, ";
-                            }
-                        case "java.lang.Long":
-                            if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                                sql += "count bigint, ";
-                            } else {
-//						sql += rsmd.getColumnName(i) + " bigint, ";
-                            }
-                            break;
-                        case "java.lang.String":
-                            sql += rsmd.getColumnName(i) + " varchar(255), ";
-                            break;
-                        case "java.lang.Float":
-                            sql += rsmd.getColumnName(i) + " float, ";
-                            break;
-                        // とりあえず
-                        case "java.math.BigDecimal":
-                            if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum double, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " decimal, ";
-                            }
-                            break;
-                        default:
-                            break;
-                    }
+		default:
+			break;
+		}
 
-                    if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                        sql2 += "count, ";
-                    } else if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                        sql2 += "sum, ";
-                    } else {
-                        sql2 += rsmd.getColumnName(i) + ", ";
-                    }
-                }
-                sql = sql.substring(0, sql.length() - 2);
-                sql += ")";
+		for(int i = 0; i < columnTypes.size(); i++){
+			switch (columnTypes.get(i)) {
+			case "int":
+			case "int4":
+				createSQL += columnNames.get(i) + " int, ";
+				break;
+			case "bigint":
+			case "int8":
+				createSQL += columnNames.get(i) + " bigint, ";
+				break;
+			case "varchar":
+				createSQL +=columnNames.get(i) + " varchar(255), ";
+				break;
+			case "float":
+			case "numeric":
+				createSQL += columnNames.get(i) + " float, ";
+				break;
+			case "decimal":
+				createSQL += columnNames.get(i) + " decimal, ";
+				break;
+			case "real":
+				createSQL += columnNames.get(i) + " real, ";
+				break;
+			default:
+				createSQL += columnNames.get(i) + " " + columnTypes.get(i) + ", ";
+				break;
+			}
+			insertSQL += columnNames.get(i) + ", ";
+		}
+		createSQL = createSQL.substring(0, createSQL.length() - 2) + ")";
 
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ") ";
+		insertSQL = insertSQL.substring(0, insertSQL.length() - 2);
+		insertSQL += ") VALUES (";
 
-                sql2 += "VALUES (";
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    sql2 += "?, ";
-                }
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ")";
+		Log.out(createSQL);
+		ps = con.prepareStatement(createSQL);
+		ps.executeUpdate();
+		
+		while(rs.hasNext()){
+			String tmpSQL = insertSQL;
+			QuerySolution qs = rs.next();
+			for(int i = 0; i < columnNames.size(); i++){
+				//TODO:cover all cases
+				switch (columnTypes.get(i)) {
+				case "int":
+				case "real":
+					if(qs.getLiteral(columnNames.get(i)).getValue() instanceof org.apache.jena.datatypes.BaseDatatype.TypedValue){
+						tmpSQL += ((org.apache.jena.datatypes.BaseDatatype.TypedValue)qs.getLiteral(columnNames.get(i)).getValue()).lexicalValue + ", ";
+					}else{
+						tmpSQL += qs.getLiteral(columnNames.get(i)).getValue().toString() + ", ";
+					}
+					break;
 
-                break;
+				default:
+					tmpSQL +="'" + qs.getLiteral(columnNames.get(i)).getValue().toString() + "', ";
+					break;
+				}
+			}
+			tmpSQL = tmpSQL.substring(0, tmpSQL.length() - 2) + ")";
+			ps = con.prepareStatement(tmpSQL);
+			try{
+				ps.executeUpdate();
+			}catch (Exception e) {
+				// TODO: handle exception
+				System.err.println("error when query" + tmpSQL);
+				e.printStackTrace();
+			}
+		}
 
-            case "postgresql":
-                if (original) {
-                    sql += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
-                    sql2 += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
-                } else {
-                    sql += GlobalEnv.getTmpdb() + "." + rsmd.getTableName(1) + "_" + tmpdate + " (";
-                    sql2 += GlobalEnv.getTmpdb() + "." + rsmd.getTableName(1) + "_" + tmpdate + " (";
-                }
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    // 取得内容確認
-//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
-//                            rsmd.getColumnName(i),
-//                            rsmd.getColumnTypeName(i),
-//                            rsmd.getColumnClassName(i),
-//                            rsmd.getColumnDisplaySize(i),
-//                            rsmd.getPrecision(i),
-//                            rsmd.getScale(i)
-//                    );
 
-                    switch (rsmd.getColumnClassName(i)) {
-                        case "java.lang.Integer":
-                            sql += rsmd.getColumnName(i) + " int, ";
-                            break;
-                        case "java.lang.Long":
-                            if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                                sql += "count bigint, ";
-                            } else if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum double, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " bigint, ";
-                            }
-                            break;
-                        case "java.lang.String":
-                            sql += rsmd.getColumnName(i) + " varchar, ";
-                            break;
-                        case "java.lang.Float":
-                            sql += rsmd.getColumnName(i) + " float, ";
-                            break;
-                        case "java.lang.Double":
-                            sql += rsmd.getColumnName(i) + " float8, ";
-                            break;
-                        // とりあえず
-                        case "java.math.BigDecimal":
-                            sql += rsmd.getColumnName(i) + " decimal, ";
-                            break;
-                        default:
-                            break;
-                    }
+	}
 
-                    if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                        sql2 += "count, ";
-                    } else if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                        sql2 += "sum, ";
-                    } else {
-                        sql2 += rsmd.getColumnName(i) + ", ";
-                    }
-                }
-                sql = sql.substring(0, sql.length() - 2);
-                sql += ")";
+	// テーブル作成、INSERT処理まで行う
+	public static void insertFromResultSet(String dbms, Connection con, ResultSet rs, String tmpdate, Boolean original) throws SQLException {
 
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ") ";
+		//        Connection con = null;
+		//        // psqlの場合は同一dbms内で別schemaに繋ぐため
+		//        switch (GlobalEnv.getDriver()) {
+		//            case "mysql":
+		//            case "sqlite":
+		//                con = DBConnect.connectLocalTmp();
+		//                break;
+		//            case "postgresql":
+		//                con = DBConnect.connectLocal();
+		//                break;
+		//        }
 
-                sql2 += "VALUES (";
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    sql2 += "?, ";
-                }
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ")";
+		PreparedStatement ps;
 
-                break;
+		ResultSetMetaData rsmd = rs.getMetaData();
 
-            case "sqlite":
-                if (original) {
-                    sql += "result_" + tmpdate + " (";
-                    sql2 += "result_" + tmpdate + " (";
-                } else {
-                    sql += rsmd.getTableName(1) + "_" + tmpdate + " (";
-                    sql2 += rsmd.getTableName(1) + "_" + tmpdate + " (";
-                }
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    // 取得内容確認
-//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
-//                            rsmd.getColumnName(i),
-//                            rsmd.getColumnTypeName(i),
-//                            rsmd.getColumnClassName(i),
-//                            rsmd.getColumnDisplaySize(i),
-//                            rsmd.getPrecision(i),
-//                            rsmd.getScale(i)
-//                    );
+		// CREATE, INSERTクエリ作成
+		String sql = "CREATE TABLE ";
+		String sql2 = "INSERT INTO ";
 
-                    switch (rsmd.getColumnTypeName(i).toUpperCase()) {
-                        case "INTEGER":
-                        case "INT":
-                        case "INT4":
-                        case "INT8":
-                        case "SERIAL":
-                            if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum int, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " int, ";
-                            }
-                            break;
-                        case "DOUBLE":
-                            if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum double, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " double, ";
-                            }
-                        case "LONG":
-                            if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                                sql += "count bigint, ";
-                            } else {
-                                 sql += rsmd.getColumnName(i) + " bigint, ";
-                            }
-                            break;
-                        case "STRING":
-                        case "VARCHAR":
-                            sql += rsmd.getColumnName(i) + " varchar, ";
-                            break;
-                        case "FLOAT":
-                            sql += rsmd.getColumnName(i) + " float, ";
-                            break;
-                        // とりあえず
-                        case "BIGDECIMAL":
-                        case "DECIMAL":
-                        case "NUMERIC":
-                            if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                                sql += "sum double, ";
-                            } else {
-                                sql += rsmd.getColumnName(i) + " decimal, ";
-                            }
-                            break;
-                        default:
-                            break;
-                    }
+		switch (GlobalEnv.getDriver()) {
+		case "mysql":
+			if (original) {
+				sql += "result_" + tmpdate + " (";
+				sql2 += "result_" + tmpdate + " (";
+			} else {
+				sql += rsmd.getTableName(1) + "_" + tmpdate + " (";
+				sql2 += rsmd.getTableName(1) + "_" + tmpdate + " (";
+			}
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				// 取得内容確認
+				//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
+				//                            rsmd.getColumnName(i),
+				//                            rsmd.getColumnTypeName(i),
+				//                            rsmd.getColumnClassName(i),
+				//                            rsmd.getColumnDisplaySize(i),
+				//                            rsmd.getPrecision(i),
+				//                            rsmd.getScale(i)
+				//                    );
 
-                    if (rsmd.getColumnName(i).equals("COUNT(*)")) {
-                        sql2 += "count, ";
-                    } else if (rsmd.getColumnName(i).matches("^SUM.*")) {
-                        sql2 += "sum, ";
-                    } else {
-                        sql2 += rsmd.getColumnName(i) + ", ";
-                    }
-                }
-                sql = sql.substring(0, sql.length() - 2);
-                sql += ")";
+				switch (rsmd.getColumnClassName(i)) {
+				case "java.lang.Integer":
+					sql += rsmd.getColumnName(i) + " int, ";
+					break;
+				case "java.lang.Double":
+					if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum double, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " double, ";
+					}
+				case "java.lang.Long":
+					if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+						sql += "count bigint, ";
+					} else {
+						//						sql += rsmd.getColumnName(i) + " bigint, ";
+					}
+					break;
+				case "java.lang.String":
+					sql += rsmd.getColumnName(i) + " varchar(255), ";
+					break;
+				case "java.lang.Float":
+					sql += rsmd.getColumnName(i) + " float, ";
+					break;
+					// とりあえず
+				case "java.math.BigDecimal":
+					if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum double, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " decimal, ";
+					}
+					break;
+				default:
+					break;
+				}
 
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ") ";
+				if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+					sql2 += "count, ";
+				} else if (rsmd.getColumnName(i).matches("^SUM.*")) {
+					sql2 += "sum, ";
+				} else {
+					sql2 += rsmd.getColumnName(i) + ", ";
+				}
+			}
+			sql = sql.substring(0, sql.length() - 2);
+			sql += ")";
 
-                sql2 += "VALUES (";
-                for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                    sql2 += "?, ";
-                }
-                sql2 = sql2.substring(0, sql2.length() - 2);
-                sql2 += ")";
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ") ";
 
-                break;
+			sql2 += "VALUES (";
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				sql2 += "?, ";
+			}
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ")";
 
-            default:
-                System.out.println("Sorry, " + dbms + " is not supported.");
-                break;
-        }
+			break;
 
-        Log.out(sql);
-        Log.out(sql2 + "\n");
+		case "postgresql":
+			if (original) {
+				sql += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
+				sql2 += GlobalEnv.getTmpdb() + ".result_" + tmpdate + " (";
+			} else {
+				sql += GlobalEnv.getTmpdb() + "." + rsmd.getTableName(1) + "_" + tmpdate + " (";
+				sql2 += GlobalEnv.getTmpdb() + "." + rsmd.getTableName(1) + "_" + tmpdate + " (";
+			}
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				// 取得内容確認
+				//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
+				//                            rsmd.getColumnName(i),
+				//                            rsmd.getColumnTypeName(i),
+				//                            rsmd.getColumnClassName(i),
+				//                            rsmd.getColumnDisplaySize(i),
+				//                            rsmd.getPrecision(i),
+				//                            rsmd.getScale(i)
+				//                    );
 
-        ps = con.prepareStatement(sql);
-        ps.executeUpdate();
+				switch (rsmd.getColumnClassName(i)) {
+				case "java.lang.Integer":
+					sql += rsmd.getColumnName(i) + " int, ";
+					break;
+				case "java.lang.Long":
+					if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+						sql += "count bigint, ";
+					} else if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum double, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " bigint, ";
+					}
+					break;
+				case "java.lang.String":
+					sql += rsmd.getColumnName(i) + " varchar, ";
+					break;
+				case "java.lang.Float":
+					sql += rsmd.getColumnName(i) + " float, ";
+					break;
+				case "java.lang.Double":
+					sql += rsmd.getColumnName(i) + " float8, ";
+					break;
+					// とりあえず
+				case "java.math.BigDecimal":
+					sql += rsmd.getColumnName(i) + " decimal, ";
+					break;
+				default:
+					break;
+				}
 
-        ps = con.prepareStatement(sql2);
+				if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+					sql2 += "count, ";
+				} else if (rsmd.getColumnName(i).matches("^SUM.*")) {
+					sql2 += "sum, ";
+				} else {
+					sql2 += rsmd.getColumnName(i) + ", ";
+				}
+			}
+			sql = sql.substring(0, sql.length() - 2);
+			sql += ")";
 
-        while (rs.next()) {
-            for (int i = 1; i <= rsmd.getColumnCount(); i++) {
-                switch (rsmd.getColumnTypeName(i).toUpperCase()) {
-                    case "INTEGER":
-                    case "INT":
-                    case "INT4":
-                    case "SERIAL":
-                        ps.setInt(i, rs.getInt(rsmd.getColumnName(i)));
-                        break;
-                    case "DOUBLE":
-                        ps.setDouble(i, rs.getDouble(rsmd.getColumnName(i)));
-                        break;
-                    case "LONG":
-                        ps.setLong(i, rs.getLong(rsmd.getColumnName(i)));
-                        break;
-                    case "STRING":
-                    case "VARCHAR":
-                        ps.setString(i, rs.getString(rsmd.getColumnName(i)));
-                        break;
-                    case "FLOAT":
-                        ps.setFloat(i, rs.getFloat(rsmd.getColumnName(i)));
-                        break;
-                    case "FLOAT8":
-                        ps.setFloat(i, rs.getFloat(rsmd.getColumnName(i)));
-                        break;
-                    case "BIGDECIMAL":
-                    case "DECIMAL":
-                    case "NUMERIC":
-                        ps.setBigDecimal(i, rs.getBigDecimal(rsmd.getColumnName(i)));
-                        break;
-                    default:
-                        System.out.println("defaulted on:" + rsmd.getColumnClassName(i));
-                        break;
-                }
-            }
-            ps.executeUpdate();
-        }
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ") ";
 
-        DBConnect.close(con);
-    }
+			sql2 += "VALUES (";
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				sql2 += "?, ";
+			}
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ")";
+
+			break;
+
+		case "sqlite":
+			if (original) {
+				sql += "result_" + tmpdate + " (";
+				sql2 += "result_" + tmpdate + " (";
+			} else {
+				sql += rsmd.getTableName(1) + "_" + tmpdate + " (";
+				sql2 += rsmd.getTableName(1) + "_" + tmpdate + " (";
+			}
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				// 取得内容確認
+				//                    System.out.printf("%s\t%s\t%s\t%d\t%d\t%d%n",
+				//                            rsmd.getColumnName(i),
+				//                            rsmd.getColumnTypeName(i),
+				//                            rsmd.getColumnClassName(i),
+				//                            rsmd.getColumnDisplaySize(i),
+				//                            rsmd.getPrecision(i),
+				//                            rsmd.getScale(i)
+				//                    );
+
+				switch (rsmd.getColumnTypeName(i).toUpperCase()) {
+				case "INTEGER":
+				case "INT":
+				case "INT4":
+				case "INT8":
+				case "SERIAL":
+					if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum int, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " int, ";
+					}
+					break;
+				case "DOUBLE":
+					if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum double, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " double, ";
+					}
+				case "LONG":
+					if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+						sql += "count bigint, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " bigint, ";
+					}
+					break;
+				case "STRING":
+				case "VARCHAR":
+					sql += rsmd.getColumnName(i) + " varchar, ";
+					break;
+				case "FLOAT":
+					sql += rsmd.getColumnName(i) + " float, ";
+					break;
+					// とりあえず
+				case "BIGDECIMAL":
+				case "DECIMAL":
+				case "NUMERIC":
+					if (rsmd.getColumnName(i).matches("^SUM.*")) {
+						sql += "sum double, ";
+					} else {
+						sql += rsmd.getColumnName(i) + " decimal, ";
+					}
+					break;
+				default:
+					break;
+				}
+
+				if (rsmd.getColumnName(i).equals("COUNT(*)")) {
+					sql2 += "count, ";
+				} else if (rsmd.getColumnName(i).matches("^SUM.*")) {
+					sql2 += "sum, ";
+				} else {
+					sql2 += rsmd.getColumnName(i) + ", ";
+				}
+			}
+			sql = sql.substring(0, sql.length() - 2);
+			sql += ")";
+
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ") ";
+
+			sql2 += "VALUES (";
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				sql2 += "?, ";
+			}
+			sql2 = sql2.substring(0, sql2.length() - 2);
+			sql2 += ")";
+
+			break;
+
+		default:
+			System.out.println("Sorry, " + dbms + " is not supported.");
+			break;
+		}
+
+		Log.out(sql);
+		Log.out(sql2 + "\n");
+
+		ps = con.prepareStatement(sql);
+		ps.executeUpdate();
+
+		ps = con.prepareStatement(sql2);
+
+		while (rs.next()) {
+			for (int i = 1; i <= rsmd.getColumnCount(); i++) {
+				switch (rsmd.getColumnTypeName(i).toUpperCase()) {
+				case "INTEGER":
+				case "INT":
+				case "INT4":
+				case "SERIAL":
+					ps.setInt(i, rs.getInt(rsmd.getColumnName(i)));
+					break;
+				case "DOUBLE":
+					ps.setDouble(i, rs.getDouble(rsmd.getColumnName(i)));
+					break;
+				case "LONG":
+					ps.setLong(i, rs.getLong(rsmd.getColumnName(i)));
+					break;
+				case "STRING":
+				case "VARCHAR":
+					ps.setString(i, rs.getString(rsmd.getColumnName(i)));
+					break;
+				case "FLOAT":
+				case "FLOAT4":
+				case "FLOAT8":
+					ps.setFloat(i, rs.getFloat(rsmd.getColumnName(i)));
+					break;
+				case "BIGDECIMAL":
+				case "DECIMAL":
+				case "NUMERIC":
+					ps.setBigDecimal(i, rs.getBigDecimal(rsmd.getColumnName(i)));
+					break;
+				default:
+					System.out.println("defaulted on:" + rsmd.getColumnTypeName(i).toUpperCase());
+					break;
+				}
+			}
+			ps.executeUpdate();
+		}
+
+		DBConnect.close(con);
+	}
 
 }

@@ -2,12 +2,15 @@ package rtaclient;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.github.jsonldjava.shaded.com.google.common.collect.Table;
+
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
 import net.sf.jsqlparser.statement.select.*;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @JsonIgnoreProperties(value = {"connector", "fromItems", "selectItems", "where", "select", "sql", "selectItem"}, ignoreUnknown=true)
 public class TableConnector {
@@ -23,19 +26,22 @@ public class TableConnector {
     private String accessName;
     @JsonProperty("accessmethod")
     private String accessMethod;
+    @JsonProperty("sparqlQuery")
+    private String sparqlQuery;
+    @JsonProperty("sparqlEndpoint")
+    private String sparqlEndpoint;
+    @JsonProperty("sparqlColumnNames")
+    private List<String> sparqlColumnNames;
+    @JsonProperty("sparqlColumnTypes")
+    private List<String> sparqlColumnTypes;
 
     private String connector = "";
     private List<FromItem> fromItems = new ArrayList<>();
     private List<SelectItem> selectItems = new ArrayList<>();
     private Expression where;
     private Select select;
-
-    public TableConnector() {
-    }
-
-    public TableConnector(String host) {
-        this.host = host;
-    }
+    
+    public TableConnector(){};
 
     public TableConnector(String dbms, String host, String user, String password, String dbName) {
         this.dbms = dbms;
@@ -45,7 +51,8 @@ public class TableConnector {
         this.dbName = dbName;
     }
 
-    public TableConnector(String dbms, String host, String user, String password, String dbName, String tbName, String accessName, String accessMethod) {
+    public TableConnector(String dbms, String host, String user, String password, String dbName, String tbName, String accessName, String accessMethod, 
+   		 String sparqlQuery, String sparqlEndpoint) {
         this.dbms = dbms;
         this.host = host;
         this.user = user;
@@ -54,6 +61,8 @@ public class TableConnector {
         this.tbName = tbName;
         this.accessName = accessName;
         this.accessMethod = accessMethod;
+        this.sparqlQuery = sparqlQuery;
+        this.sparqlEndpoint = sparqlEndpoint;
     }
 
     public void setDBMS(String dbms) {
@@ -67,6 +76,10 @@ public class TableConnector {
     public void setDbName(String dbName) {
         this.dbName = dbName;
     }
+    
+    public void setAccessMethod(String accessMethod) {
+ 		this.accessMethod = accessMethod;
+ 	}
 
     public void setAccessName(String accessName) {
         this.accessName = accessName;
@@ -96,6 +109,14 @@ public class TableConnector {
         this.where = where;
     }
     
+    public void setSparqlColumnNames(List<String> sparqlColumnNames) {
+ 		this.sparqlColumnNames = sparqlColumnNames;
+ 	}
+
+ 	public void setSparqlColumnTypes(List<String> sparqlColumnTypes) {
+ 		this.sparqlColumnTypes = sparqlColumnTypes;
+ 	}
+ 	
     public void addWhere(Expression where){
     	if(this.where == null){
     		this.where = where;
@@ -117,7 +138,12 @@ public class TableConnector {
         return dbName;
     }
 
-    public String getAccessName() {
+    public String getAccessMethod() {
+		return accessMethod;
+	}
+
+
+	public String getAccessName() {
         return accessName;
     }
 
@@ -145,7 +171,24 @@ public class TableConnector {
         return where;
     }
 
-    public String createConnector() {
+    public String getSparqlQuery() {
+		return sparqlQuery;
+	}
+
+	public String getSparqlEndpoint() {
+		return sparqlEndpoint;
+	}
+
+	public List<String> getSparqlColumnNames() {
+		return sparqlColumnNames;
+	}
+
+	public List<String> getSparqlColumnTypes() {
+		return sparqlColumnTypes;
+	}
+
+
+	public String createConnector() {
         connector += "jdbc:";
         connector += dbms;
         connector += "://";

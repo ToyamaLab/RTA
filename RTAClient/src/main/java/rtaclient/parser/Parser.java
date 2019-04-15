@@ -39,7 +39,19 @@ public class Parser {
     public Parser() {
         localConnector = new TableConnector(GlobalEnv.getDriver(), GlobalEnv.getHost(), GlobalEnv.getUser(), GlobalEnv.getPassword(), GlobalEnv.getDb());
     }
-
+    
+    /**
+     * 
+     * @param sql RTA query
+     * @param datetime 
+     * @return
+     * @throws SQLException
+     * @throws JSQLParserException
+     * @throws ParserConfigurationException
+     * @throws FileNotFoundException
+     * @throws TransformerException
+     * @throws IOException
+     */
     public int parse(String sql, String datetime) throws SQLException, JSQLParserException, ParserConfigurationException, FileNotFoundException, TransformerException, IOException {
         this.original_query = sql;
         this.tmpDateTime = datetime;
@@ -183,7 +195,7 @@ public class Parser {
                     }
                     alreadyExists = false;
                 }
-                if (!remoteFound) {
+                if (!remoteFound) { //when table is local
                     switch (GlobalEnv.getDriver()) {
                         case "mysql":
                             tb.setSchemaName(GlobalEnv.getDb());
@@ -483,7 +495,9 @@ public class Parser {
         TableConnector tc = null;
 
         con = DBConnect.connectLibrary();
-        pstmt = con.prepareStatement("SELECT * FROM dbinfo WHERE table_name = ?");
+        pstmt = con.prepareStatement("SELECT dbms, host, user_name, password, db_name, table_name, access_name, access_method, sparql_query, sparql_endpoint"
+        		+ " FROM (dbinfo LEFT OUTER JOIN sparql ON (dbinfo.access_method ='linked' "
+        		+ "AND dbinfo.access_name = sparql.sparql_access_name))WHERE dbinfo.access_name = ?");
         pstmt.setString(1, accessName);
         rs = pstmt.executeQuery();
 
@@ -491,15 +505,28 @@ public class Parser {
             tc = new TableConnector(
                     rs.getString("dbms"), rs.getString("host"), rs.getString("user_name"),
                     rs.getString("password"), rs.getString("db_name"), rs.getString("table_name"),
-                    rs.getString("access_name"), rs.getString("access_method")
-
+                    rs.getString("access_name"), rs.getString("access_method"), rs.getString("sparql_query"), rs.getString("sparql_endpoint")
             );
+            if(tc.getAccessMethod().equals("linked")){
+            	 pstmt = con.prepareStatement("SELECT sc.sparql_column_name, sc.sparql_column_datatype "
+            	 		+ "FROM sparql s NATURAL JOIN sparql_column sc WHERE s.sparql_access_name = ?");
+                  pstmt.setString(1, accessName);
+                  rs = pstmt.executeQuery();
+                  List<String> columnNames = new ArrayList<>();
+                  List<String> columnTypes = new ArrayList<>();
+                  while(rs.next()){
+                  	columnNames.add(rs.getString("sparql_column_name"));
+                  	columnTypes.add(rs.getString("sparql_column_datatype"));
+                  }
+                  tc.setSparqlColumnNames(columnNames);
+                  tc.setSparqlColumnTypes(columnTypes);
+                  
+            }
             String json = mapper.writeValueAsString(tc);
             FileWriter filewriter = new FileWriter(filePath);
             filewriter.write(json);
             filewriter.close();
             Log.out("Download " + accessName + ".rta in " + filePath);
-
         } else {
             System.out.println("Access name " + accessName + " doesn't exist.");
         }
