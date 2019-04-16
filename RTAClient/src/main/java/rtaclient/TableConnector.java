@@ -30,10 +30,8 @@ public class TableConnector {
     private String sparqlQuery;
     @JsonProperty("sparqlEndpoint")
     private String sparqlEndpoint;
-    @JsonProperty("sparqlColumnNames")
-    private List<String> sparqlColumnNames;
-    @JsonProperty("sparqlColumnTypes")
-    private List<String> sparqlColumnTypes;
+    @JsonProperty("sparqlColumns")
+    private Map<String, String> sparqlColumns;
 
     private String connector = "";
     private List<FromItem> fromItems = new ArrayList<>();
@@ -109,13 +107,6 @@ public class TableConnector {
         this.where = where;
     }
     
-    public void setSparqlColumnNames(List<String> sparqlColumnNames) {
- 		this.sparqlColumnNames = sparqlColumnNames;
- 	}
-
- 	public void setSparqlColumnTypes(List<String> sparqlColumnTypes) {
- 		this.sparqlColumnTypes = sparqlColumnTypes;
- 	}
  	
     public void addWhere(Expression where){
     	if(this.where == null){
@@ -125,6 +116,10 @@ public class TableConnector {
     		this.where = orExp;
     	}
     }
+    
+    public void setSparqlColumns(Map<String, String> sparqlColumns) {
+ 		this.sparqlColumns = sparqlColumns;
+ 	}
 
     public String getDBMS() {
         return dbms;
@@ -179,12 +174,9 @@ public class TableConnector {
 		return sparqlEndpoint;
 	}
 
-	public List<String> getSparqlColumnNames() {
-		return sparqlColumnNames;
-	}
 
-	public List<String> getSparqlColumnTypes() {
-		return sparqlColumnTypes;
+	public Map<String, String> getSparqlColumns() {
+		return sparqlColumns;
 	}
 
 

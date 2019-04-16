@@ -183,8 +183,8 @@ public class QueryExecutor {
 		}
 	}
 
-	public static void insertFromSparql(org.apache.jena.query.ResultSet rs, String tmpdate, List<String> columnNames,
-			List<String> columnTypes, String tableName) throws SQLException{
+	public static void insertFromSparql(org.apache.jena.query.ResultSet rs, String tmpdate, 
+		Map<String, String> sparqlColumns, String accessName) throws SQLException{
 		Connection con = null;
 		// psqlの場合は同一dbms内で別schemaに繋ぐため
 		switch (GlobalEnv.getDriver()) {
@@ -203,48 +203,48 @@ public class QueryExecutor {
 
 		switch (GlobalEnv.getDriver()) {
 		case "mysql":
-			createSQL += tableName + "_" + tmpdate + " (";
-			insertSQL += tableName + "_" + tmpdate + " (";
+			createSQL += accessName + "_" + tmpdate + " (";
+			insertSQL += accessName + "_" + tmpdate + " (";
 			break;
 
 		case "postgresql":
 		case "sqlite":
-			createSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
-			insertSQL += GlobalEnv.getTmpdb() + "." + tableName + "_" + tmpdate + " (";
+			createSQL += GlobalEnv.getTmpdb() + "." + accessName + "_" + tmpdate + " (";
+			insertSQL += GlobalEnv.getTmpdb() + "." + accessName + "_" + tmpdate + " (";
 			break;
 
 		default:
 			break;
 		}
 
-		for(int i = 0; i < columnTypes.size(); i++){
-			switch (columnTypes.get(i)) {
+		for(String columnName : sparqlColumns.keySet()){
+			switch (sparqlColumns.get(columnName)) {
 			case "int":
 			case "int4":
-				createSQL += columnNames.get(i) + " int, ";
+				createSQL += columnName + " int, ";
 				break;
 			case "bigint":
 			case "int8":
-				createSQL += columnNames.get(i) + " bigint, ";
+				createSQL += columnName + " bigint, ";
 				break;
 			case "varchar":
-				createSQL +=columnNames.get(i) + " varchar(255), ";
+				createSQL +=columnName + " varchar(255), ";
 				break;
 			case "float":
 			case "numeric":
-				createSQL += columnNames.get(i) + " float, ";
+				createSQL += columnName + " float, ";
 				break;
 			case "decimal":
-				createSQL += columnNames.get(i) + " decimal, ";
+				createSQL += columnName + " decimal, ";
 				break;
 			case "real":
-				createSQL += columnNames.get(i) + " real, ";
+				createSQL += columnName + " real, ";
 				break;
 			default:
-				createSQL += columnNames.get(i) + " " + columnTypes.get(i) + ", ";
+				createSQL += columnName + " " + sparqlColumns.get(columnName) + ", ";
 				break;
 			}
-			insertSQL += columnNames.get(i) + ", ";
+			insertSQL += columnName + ", ";
 		}
 		createSQL = createSQL.substring(0, createSQL.length() - 2) + ")";
 
@@ -258,20 +258,20 @@ public class QueryExecutor {
 		while(rs.hasNext()){
 			String tmpSQL = insertSQL;
 			QuerySolution qs = rs.next();
-			for(int i = 0; i < columnNames.size(); i++){
+			for(String columnName : sparqlColumns.keySet()){
 				//TODO:cover all cases
-				switch (columnTypes.get(i)) {
+				switch (sparqlColumns.get(columnName)) {
 				case "int":
 				case "real":
-					if(qs.getLiteral(columnNames.get(i)).getValue() instanceof org.apache.jena.datatypes.BaseDatatype.TypedValue){
-						tmpSQL += ((org.apache.jena.datatypes.BaseDatatype.TypedValue)qs.getLiteral(columnNames.get(i)).getValue()).lexicalValue + ", ";
+					if(qs.getLiteral(columnName).getValue() instanceof org.apache.jena.datatypes.BaseDatatype.TypedValue){
+						tmpSQL += ((org.apache.jena.datatypes.BaseDatatype.TypedValue)qs.getLiteral(columnName).getValue()).lexicalValue + ", ";
 					}else{
-						tmpSQL += qs.getLiteral(columnNames.get(i)).getValue().toString() + ", ";
+						tmpSQL += qs.getLiteral(columnName).getValue().toString() + ", ";
 					}
 					break;
 
 				default:
-					tmpSQL +="'" + qs.getLiteral(columnNames.get(i)).getValue().toString() + "', ";
+					tmpSQL +="'" + qs.getLiteral(columnName).getValue().toString() + "', ";
 					break;
 				}
 			}

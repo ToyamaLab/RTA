@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.sql.*;
 import java.io.FileNotFoundException;
 import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.regex.*;
 
 import javax.xml.parsers.ParserConfigurationException;
@@ -512,15 +514,14 @@ public class Parser {
             	 		+ "FROM sparql s NATURAL JOIN sparql_column sc WHERE s.sparql_access_name = ?");
                   pstmt.setString(1, accessName);
                   rs = pstmt.executeQuery();
-                  List<String> columnNames = new ArrayList<>();
-                  List<String> columnTypes = new ArrayList<>();
+                  Map<String, String> sparqlColumns = new HashMap<>();              
                   while(rs.next()){
-                  	columnNames.add(rs.getString("sparql_column_name"));
-                  	columnTypes.add(rs.getString("sparql_column_datatype"));
+                  	System.out.println(rs.getString("sparql_column_name"));
+                  	System.out.println(rs.getString("sparql_column_datatype"));
+                  	sparqlColumns.put(rs.getString("sparql_column_name"),rs.getString("sparql_column_datatype"));
                   }
-                  tc.setSparqlColumnNames(columnNames);
-                  tc.setSparqlColumnTypes(columnTypes);
-                  
+                  System.out.println(sparqlColumns);
+                  tc.setSparqlColumns(sparqlColumns);
             }
             String json = mapper.writeValueAsString(tc);
             FileWriter filewriter = new FileWriter(filePath);

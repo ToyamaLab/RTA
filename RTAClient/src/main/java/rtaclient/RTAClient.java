@@ -140,7 +140,7 @@ public class RTAClient {
                      
 						case "linked":
 							org.apache.jena.query.ResultSet rs = GetData.fromSparql(tc.getSparqlQuery(), tc.getSparqlEndpoint());
-							QueryExecutor.insertFromSparql(rs, tmpdate, tc.getSparqlColumnNames(), tc.getSparqlColumnTypes(), tc.getAccessName());
+							QueryExecutor.insertFromSparql(rs, tmpdate, tc.getSparqlColumns(), tc.getAccessName());
 							break;
 							
 						default:
