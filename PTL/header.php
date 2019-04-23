@@ -1,6 +1,6 @@
 <html>
   <head>
-    <title>Public Table Library</title>
+  <title>Public Table Library</title>
 
     <meta name="viewport" content="width=device-width, initial-scale=1">
 
@@ -30,6 +30,7 @@
         <li><a href="./list.php">List</a></li>
         <li><a href="./download.php">Download</a></li>
         <li><a href="./instruction.php">Instruction</a></li>
+        <li><a href="./ground.php">Playground</a></li>
       </ul>
     </div><!--/.nav-collapse -->
   </div>

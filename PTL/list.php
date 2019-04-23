@@ -6,7 +6,7 @@ require_once('functions.php');
 // DBへの接続
 $dbh = connectLocalDB();
 
-$sql = 'SELECT p.name, p.alias, d.id, d.table_name, d.description  FROM dbinfo d INNER JOIN publishers p ON d.pub_id = p.id ORDER BY d.pub_id';
+$sql = 'SELECT p.name, p.alias, d.id, d.access_name, d.description  FROM dbinfo d INNER JOIN publishers p ON d.pub_id = p.id ORDER BY d.pub_id';
 $stmt = $dbh->prepare($sql);
 $stmt->execute(array());
 
@@ -34,7 +34,7 @@ $stmt->execute(array());
                 <tr>
                     <td><?= $row['name'] ?></td>
                     <td><?= $row['alias'] ?></td>
-                    <td>#<?= $row['table_name'] ?></td>
+                    <td>#<?= $row['access_name'] ?></td>
                     <td><?= $row['description'] ?></td>
                     <td><a href="detail.php?t_id=<?= $row['id'] ?>">Detail</a></td>
                     <td><a href="content.php?t_id=<?= $row['id'] ?>">Content</a></td>

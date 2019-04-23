@@ -1,0 +1,8 @@
+driver=posgresql
+host=localhost
+user=shu
+password=shu
+db=rta_databases
+tmp_db=tmp
+# db=/var/www/html/PTL/rta/sample.db
+# tmp_db=/var/www/html/PTL/rta/tmp.db

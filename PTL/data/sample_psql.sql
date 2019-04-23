@@ -67,3 +67,20 @@ VALUES
 	(13,'日比',1040054),
 	(14,'小林',1980041),
 	(15,'斎藤',1860001);
+
+DROP TABLE IF EXISTS user_rental;
+CREATE TABLE user_rental (
+    id serial,
+    user_id int,
+    isbn varchar,
+    borrow date,
+    return date,
+    PRIMARY KEY (id)
+);
+
+INSERT INTO user_rental
+VALUES
+	(1,1,4101006024,'2017-12-06','2017-12-15'),
+	(2,1,4167158027,'2017-12-06','2017-12-15'),
+	(3,1,4041008387,'2017-12-10','2017-12-19'),
+	(4,1,4003100557,'2017-12-12','2018-01-10');

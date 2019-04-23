@@ -17,4 +17,8 @@ function connectLocalDB() {
 		exit;
 	}
 }
+
+function pgConnectLocalDB(){
+	return pg_connect("host=localhost dbname=rta_databases user=machida password =machida");
+}
 ?>
