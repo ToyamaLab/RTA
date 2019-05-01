@@ -17,4 +17,6 @@ $stmt2 = $con->prepare($sql2);
 $stmt2->execute(array());
 $rows = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 echo json_encode(array('data' => $rows), JSON_PRETTY_PRINT);
+
 ?>
+

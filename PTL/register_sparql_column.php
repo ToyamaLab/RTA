@@ -35,14 +35,11 @@ for ($i = 0; $i < count($_POST['data_type']); $i++) {
 	"sparql_column_datatype" => $_POST['data_type'][$i],
 	"sparql_column_description" => $_POST['column_description'][$i],
 	"sparql_id" => $row['sparql_id']));
-	print "column_name:{$_POST['column_name'][$i]}<br>";
-	print "datatype:{$_POST['data_type'][$i]}<br>";
-	print "column_description:{$_POST['column_description'][$i]}<br>";
 }
 
-$sql2 = "INSERT INTO dbinfo(access_name, access_method) VALUES($1, $2)";
+$sql2 = "INSERT INTO dbinfo(access_name, access_method, description) VALUES($1, $2, $3)";
 $result = pg_prepare($con, 'my_query2', $sql2);
-$result = pg_execute($con, 'my_query2', array($access_name, 'linked'));
+$result = pg_execute($con, 'my_query2', array($access_name, 'linked', $table_description));
 
 ?>
 
