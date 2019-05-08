@@ -98,13 +98,18 @@ include 'header.php';
             case "lod":
               var lod_html = (function(){/*
                 <form id="registerForm" action="./register_sparql.php" method="post">
-                  <div class="form-group">
-                    <label>Sparql Endpoint</label>
-                  <select name="sparql_endpoint" class="form-control">
-                    <option value='' disabled selected style='display:none;'>Please select</option>
-                    <option value="http://dbpedia.org/sparql">DBpedia</option>
-                    <option value="http://ja.dbpedia.org/sparql">DBpedia_Japanese</option>
-                  </select>
+                  <div id = "sparql_endpoint">
+                    <div class="form-group">
+                      <label>Sparql Endpoint</label>
+                      <select id = "sparql_endpoint_select" name="sparql_endpoint" class="form-control">
+                        <option value='' disabled selected style='display:none;'>Please select</option>
+                        <option value="http://dbpedia.org/sparql">DBpedia</option>
+                        <option value="http://ja.dbpedia.org/sparql">DBpedia_Japanese</option>
+                        <option value="http://id.ndl.go.jp/auth/ndla/sparql">Web NDL Authorities</option>
+                        <option value="http://sparql.europeana.eu/">Europeana</option>
+                        <option value="custom">enter a sparql endpoint URL</option>
+                      </select>
+                    </div>
                   </div>
 
                   <div class="form-group">
@@ -119,6 +124,15 @@ include 'header.php';
               */}).toString().match(/(?:\/\*(?:[\s\S]*?)\*\/)/).pop().replace(/^\/\*/, "").replace(/\*\/$/, "");
               $("#registerForm").remove();
               $("#col").append(lod_html);
+              if(document.getElementById("sparql_endpoint_select").value == "custom"){
+                var sparql_endpoint_input_html = (function()){/*
+                  <div class = "form-group">
+                    <label>Enter a Sparql Endpoint</label>
+                    <input type = "text" name = 
+                  */
+
+                }
+              }
               break;
 
             case "csv":

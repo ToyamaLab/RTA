@@ -71,17 +71,17 @@ if($access_method == 'linked'){
     </script>
 <?php else:?>
     <script>
-    jQuery(function($){
-        $("#content-table").DataTable({
-            scrollX: true,
-            ajax: 'data.php?t_id=<?php echo $_GET['t_id'] ?>',
-            columns: [
-                <?php foreach($columns as $c): ?>
-                { "data": "<?php echo $c['name']; ?>" },
-                <?php endforeach; ?>
-            ]
+        jQuery(function($){
+            $("#content-table").DataTable({
+                scrollX: true,
+                ajax: 'data.php?t_id=<?php echo $_GET['t_id'] ?>',
+                columns: [
+                    <?php foreach($columns as $c): ?>
+                    { "data": "<?php echo $c['name']; ?>" },
+                    <?php endforeach; ?>
+                ]
+            });
         });
-    });
     </script>
 <?php endif; ?>
 
