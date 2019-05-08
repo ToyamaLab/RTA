@@ -3,7 +3,6 @@ package rtaclient;
 import java.io.IOException;
 import java.sql.*;
 import java.util.Iterator;
-import java.util.List;
 import java.util.Map;
 
 import org.apache.jena.query.QuerySolution;
@@ -15,7 +14,6 @@ import rtaclient.db.DBConnect;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import net.sf.jsqlparser.expression.CaseExpression;
 
 
 public class QueryExecutor {

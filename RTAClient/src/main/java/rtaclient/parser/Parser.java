@@ -22,6 +22,7 @@ import java.util.regex.*;
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
 
+
 import net.sf.jsqlparser.JSQLParserException;
 import net.sf.jsqlparser.expression.*;
 import net.sf.jsqlparser.expression.operators.conditional.*;
@@ -92,22 +93,36 @@ public class Parser {
         setSelectBody(originalSelect.getSelectBody());
 
         // generate SQL
-        Log.out("");
         int tcSize = remoteConnector.size();
         for (int i = 0; i < tcSize; i++) {
             TableConnector tc = remoteConnector.get(i);
             Select tmpSelect = Utils.buildSelect(tc.getFromItems(), tc.getSelectItem(), tc.getWhere());
             tc.setSelect(tmpSelect);
             Log.out("RemoteQuery[" + i + "]: " + tmpSelect);
+            if(tc.getSparqlQuery() != null) {
+            	List<String> tmpSparqlColumns = new ArrayList<>();
+            	String tmpSparqlSelect = Utils.buildSparqlSelect(tc.getSparqlQuery(), tc.getFromItems(), 
+            			tc.getSelectItem(), tc.getWhere(), tmpSparqlColumns);
+            	tc.setSparqlQuery(tmpSparqlSelect);
+            	if(tmpSparqlColumns.isEmpty()){
+            		tmpSparqlColumns.addAll(tc.getSparqlColumns().keySet());
+            	}
+            	Map<String, String> sparqlColumns = new HashMap<>();
+            	for(String tmpSparqlColumn: tmpSparqlColumns){
+            		String sparqlColumnDatatype = tc.getSparqlColumns().get(tmpSparqlColumn);
+            		sparqlColumns.put(tmpSparqlColumn, sparqlColumnDatatype);
+            	}
+            	tc.setSparqlColumns(sparqlColumns);
+            	
+            	
+            }
         }
 
         Select localSelect = Utils.buildSelect(localConnector.getFromItems(), localConnector.getSelectItem(), localConnector.getWhere());
         localConnector.setSelect(localSelect);
 
         if (!localSelect.toString().equals("null")) Log.out("LocalQuery: " + localSelect);
-
-        Log.out("");
-
+        
         return 0;
     }
 
@@ -459,7 +474,7 @@ public class Parser {
         int i = 0;
         for (TableConnector tc : remoteConnector) {
             Table t = (Table) tc.getFromItems().get(0);
-            if (tableName.equals(t.getAlias().getName())) {
+            if (tableName != null && (tableName.equals(t.getName()) || tableName.equals(t.getAlias().getName()))) {
                 return i;
             }
             i++;
@@ -510,17 +525,15 @@ public class Parser {
                     rs.getString("access_name"), rs.getString("access_method"), rs.getString("sparql_query"), rs.getString("sparql_endpoint")
             );
             if(tc.getAccessMethod().equals("linked")){
+            	
             	 pstmt = con.prepareStatement("SELECT sc.sparql_column_name, sc.sparql_column_datatype "
             	 		+ "FROM sparql s NATURAL JOIN sparql_column sc WHERE s.sparql_access_name = ?");
                   pstmt.setString(1, accessName);
                   rs = pstmt.executeQuery();
                   Map<String, String> sparqlColumns = new HashMap<>();              
                   while(rs.next()){
-                  	System.out.println(rs.getString("sparql_column_name"));
-                  	System.out.println(rs.getString("sparql_column_datatype"));
                   	sparqlColumns.put(rs.getString("sparql_column_name"),rs.getString("sparql_column_datatype"));
                   }
-                  System.out.println(sparqlColumns);
                   tc.setSparqlColumns(sparqlColumns);
             }
             String json = mapper.writeValueAsString(tc);

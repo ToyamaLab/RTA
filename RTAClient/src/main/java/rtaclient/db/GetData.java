@@ -62,6 +62,7 @@ public class GetData {
     }
     
     public static ResultSet fromSparql(String queryString,String endpoint){
+   	 
    	 Query query = QueryFactory.create(queryString);
 			QueryExecution qexec = QueryExecutionFactory
 					.sparqlService(endpoint, query);

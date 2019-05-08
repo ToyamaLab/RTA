@@ -32,6 +32,7 @@ public class TableConnector {
     private String sparqlEndpoint;
     @JsonProperty("sparqlColumns")
     private Map<String, String> sparqlColumns;
+    //Map<String sparql_column_name, String sparql_column_datatype>
 
     private String connector = "";
     private List<FromItem> fromItems = new ArrayList<>();
@@ -95,7 +96,11 @@ public class TableConnector {
         this.select = select;
     }
 
-    public void addFromItems(FromItem fromItem) {
+    public void setSparqlQuery(String sparqlQuery) {
+		this.sparqlQuery = sparqlQuery;
+	}
+
+	public void addFromItems(FromItem fromItem) {
         this.fromItems.add(fromItem);
     }
 
@@ -167,7 +172,9 @@ public class TableConnector {
     }
 
     public String getSparqlQuery() {
-		return sparqlQuery;
+   	 String result = sparqlQuery;
+   	 //Change result with info from where and select etc
+		return result;
 	}
 
 	public String getSparqlEndpoint() {
