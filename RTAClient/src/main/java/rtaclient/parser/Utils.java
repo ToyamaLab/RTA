@@ -8,9 +8,28 @@ import org.apache.jena.query.QueryFactory;
 import org.apache.jena.sparql.algebra.Algebra;
 import org.apache.jena.sparql.algebra.Op;
 import org.apache.jena.sparql.algebra.OpAsQuery;
+import org.apache.jena.sparql.algebra.op.OpFilter;
 import org.apache.jena.sparql.algebra.op.OpProject;
 import org.apache.jena.sparql.core.Var;
+import org.apache.jena.sparql.expr.E_Add;
+import org.apache.jena.sparql.expr.E_Divide;
+import org.apache.jena.sparql.expr.E_Equals;
+import org.apache.jena.sparql.expr.E_GreaterThan;
+import org.apache.jena.sparql.expr.E_GreaterThanOrEqual;
+import org.apache.jena.sparql.expr.E_LessThan;
+import org.apache.jena.sparql.expr.E_LessThanOrEqual;
+import org.apache.jena.sparql.expr.E_LogicalAnd;
+import org.apache.jena.sparql.expr.E_LogicalOr;
+import org.apache.jena.sparql.expr.E_Multiply;
+import org.apache.jena.sparql.expr.E_NotEquals;
+import org.apache.jena.sparql.expr.E_StrConcat;
+import org.apache.jena.sparql.expr.E_Subtract;
+import org.apache.jena.sparql.expr.Expr;
+import org.apache.jena.sparql.expr.ExprVar;
+import org.apache.jena.sparql.expr.nodevalue.NodeValueDouble;
+import org.omg.CORBA.PRIVATE_MEMBER;
 
+import net.sf.jsqlparser.schema.Column;
 import net.sf.jsqlparser.schema.Table;
 import net.sf.jsqlparser.statement.select.AllColumns;
 import net.sf.jsqlparser.statement.select.AllTableColumns;
@@ -22,6 +41,24 @@ import net.sf.jsqlparser.statement.select.SelectExpressionItem;
 import net.sf.jsqlparser.statement.select.SelectItem;
 import rtaclient.common.Log;
 import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.LongValue;
+import net.sf.jsqlparser.expression.operators.arithmetic.Addition;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseAnd;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseOr;
+import net.sf.jsqlparser.expression.operators.arithmetic.BitwiseXor;
+import net.sf.jsqlparser.expression.operators.arithmetic.Concat;
+import net.sf.jsqlparser.expression.operators.arithmetic.Division;
+import net.sf.jsqlparser.expression.operators.arithmetic.Modulo;
+import net.sf.jsqlparser.expression.operators.arithmetic.Multiplication;
+import net.sf.jsqlparser.expression.operators.arithmetic.Subtraction;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.EqualsTo;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThan;
+import net.sf.jsqlparser.expression.operators.relational.GreaterThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.MinorThan;
+import net.sf.jsqlparser.expression.operators.relational.MinorThanEquals;
+import net.sf.jsqlparser.expression.operators.relational.NotEqualsTo;
 
 public class Utils {
     public static Select buildSelect(List<FromItem> tables, List<SelectItem> selectItems, Expression where) {
@@ -72,19 +109,72 @@ public class Utils {
    				 columnNames.add(columnName);
    			 }else {
    				 columnNames.clear();
-					return originalSparqlQuery;
 				}		 
-   		 }else{
+   		 }else{//*のため
    			 columnNames.clear();
-   			 return originalSparqlQuery;
    		 }
    	 }
-   	 op = new OpProject(op, vars);
+   	 
+   	 if(!vars.isEmpty()){
+   		 op = new OpProject(op, vars);
+   	 }
+   	 if(where != null){
+   		 op = OpFilter.filter(toExpr(where), op);
+   	 }
+   	 
    	 org.apache.jena.query.Query newQuery = OpAsQuery.asQuery(op);
    	 String sparqlQuery = newQuery.serialize();
    	 Log.out(sparqlQuery);
    	 
    	 return sparqlQuery;
-    }
+    }   
     
+    private static Expr toExpr(Expression sql) {
+   	 Expr sparql = null;
+   	   if(sql instanceof OrExpression){
+   	   	OrExpression sqlCast = (OrExpression)sql;
+   	   	sparql = new E_LogicalOr(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if (sql instanceof AndExpression){
+   	   	AndExpression sqlCast = (AndExpression)sql;
+   	   	sparql = new E_LogicalAnd(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if (sql instanceof EqualsTo){
+   	   	EqualsTo sqlCast = (EqualsTo)sql;
+   	   	sparql = new E_Equals(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if (sql instanceof NotEqualsTo){
+   	   	NotEqualsTo sqlCast = (NotEqualsTo)sql;
+   	   	sparql = new E_NotEquals(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if (sql instanceof GreaterThan){
+   	   	GreaterThan sqlCast = (GreaterThan)sql;
+   	   	sparql = new E_GreaterThan(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof GreaterThanEquals){
+   	   	GreaterThanEquals sqlCast = (GreaterThanEquals)sql;
+   	   	sparql = new E_GreaterThanOrEqual(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof MinorThan){
+   	   	MinorThan sqlCast = (MinorThan)sql;
+   	   	sparql = new E_LessThan(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof MinorThanEquals){
+   	   	MinorThanEquals sqlCast = (MinorThanEquals)sql;
+   	   	sparql = new E_LessThanOrEqual(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof Addition){
+   	   	Addition sqlCast = (Addition)sql;
+   	   	sparql = new E_Add(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof Division){
+   	   	Division sqlCast = (Division)sql;
+   	   	sparql = new E_Divide(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof Multiplication){
+   	   	Multiplication sqlCast = (Multiplication)sql;
+   	   	sparql = new E_Multiply(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof Subtraction){
+   	   	Subtraction sqlCast = (Subtraction)sql;
+   	   	sparql = new E_Subtract(toExpr(sqlCast.getLeftExpression() ), toExpr(sqlCast.getRightExpression()));
+   	   }else if(sql instanceof Column) {
+   	   	Column sqlCast = (Column)sql;
+   	   	sparql = new ExprVar(sqlCast.getColumnName());
+   	   }else if(sql instanceof LongValue){
+   	   	LongValue sqlCast = (LongValue)sql;
+   	   	sparql = new NodeValueDouble(sqlCast.getValue());
+   	   }
+   	   //TODO: handle all cases
+   	   return sparql;
+   	 }
 }
