@@ -1,48 +1,60 @@
 package rtaclient;
 
-import java.io.IOException;
-import java.sql.*;
-import java.util.Iterator;
-import java.util.Map;
-
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.SelectItem;
 
 import rtaclient.common.GlobalEnv;
 import rtaclient.common.Log;
 import rtaclient.db.DBConnect;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.*;
+import rtaclient.parser.Parser;
+import rtaclient.sjmanager.tableDAGRoot;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.sql.*;
+import java.util.Iterator;
+import java.util.Map;
 
 public class QueryExecutor {
 
-    // tmpDBが存在していなかったら作成
-    public static void createTmp() throws SQLException {
-        Connection con = DBConnect.connectLocal();
-        String tmpDB = GlobalEnv.getTmpdb();
-        String dbms = GlobalEnv.getDriver();
-        String sql = "";
-        switch (dbms) {
-            case "mysql":
-                sql = "CREATE DATABASE IF NOT EXISTS " + tmpDB + " CHARACTER SET utf8";
-                break;
+        // tmpDBが存在していなかったら作成
+        public static void createTmp () throws SQLException {
+            Connection con = DBConnect.connectLocal();
+            String tmpDB = GlobalEnv.getTmpdb();
+            String dbms = GlobalEnv.getDriver();
+            String sql = "";
+            switch (dbms) {
+                case "mysql":
+                    sql = "CREATE DATABASE IF NOT EXISTS " + tmpDB + " CHARACTER SET utf8";
+                    break;
 
-            case "postgresql":
-                sql = "CREATE SCHEMA IF NOT EXISTS " + tmpDB;
-                break;
+                case "postgresql":
+                    sql = "CREATE SCHEMA IF NOT EXISTS " + tmpDB;
+                    break;
 
-            case "sqlite":
-                // do nothing
-                return;
+                case "sqlite":
+                    // do nothing
+                    return;
 
-            default:
-                System.out.println("Sorry, " + dbms + " is not supported yet.");
+                default:
+                    System.out.println("Sorry, " + dbms + " is not supported yet.");
+            }
+            PreparedStatement ps = con.prepareStatement(sql);
+            ps.executeUpdate();
+            DBConnect.close(con);
         }
-        PreparedStatement ps = con.prepareStatement(sql);
-        ps.executeUpdate();
-        DBConnect.close(con);
-    }
 
-    public static void insertFromJson(String dbms, String rs_json, String tmpdate, Boolean original) throws SQLException {
+    public static String insertFromJson(String tableName, String rs_json, String tmpdate, Boolean original) throws SQLException {
 
         Connection con = null;
         // psqlの場合は同一dbms内で別schemaに繋ぐため
@@ -66,12 +78,11 @@ public class QueryExecutor {
             e.printStackTrace();
         }
 
-        String tableName = root.get("table_name").asText();
-        root.get("table_name").fieldNames();
-
         // SQL前半部
         String createSQL = "CREATE TABLE ";
         String insertSQL = "INSERT INTO ";
+
+        String newTbName="";
 
         switch (GlobalEnv.getDriver()) {
             case "mysql":
@@ -131,7 +142,7 @@ public class QueryExecutor {
                     createSQL += metaField.getKey() + " decimal, ";
                     break;
                 default:
-                    createSQL += metaField.getKey() + " " + metaField.getValue().asText() + " ";
+                    createSQL += metaField.getKey() + " " + metaField.getValue().asText() + ", ";
                     break;
             }
 
@@ -159,7 +170,7 @@ public class QueryExecutor {
                 Map.Entry<String, JsonNode> nodeField = nodeFields.next();
                 JsonNode jn = nodeField.getValue();
                 if (jn.isTextual()) {
-                    tmpSQL += "'" + nodeField.getValue().asText() + "', ";
+                    tmpSQL += "'" + escapeSql(nodeField.getValue().asText()) + "', ";
                 } else if (jn.isInt()) {
                     tmpSQL += nodeField.getValue().asInt() + ", ";
                 } else if (jn.isDouble()) {
@@ -171,10 +182,11 @@ public class QueryExecutor {
                 }
             }
             tmpSQL = tmpSQL.substring(0, tmpSQL.length() - 2) + ")";
-            //  System.out.println(tmpSQL);
             ps = con.prepareStatement(tmpSQL);
             ps.executeUpdate();
+
         }
+        return newTbName;
     }
 
     // テーブル作成、INSERT処理まで行う
@@ -491,5 +503,14 @@ public class QueryExecutor {
 
         DBConnect.close(con);
     }
+
+    public static String escapeSql(String str) {
+        if (str == null) {
+            return null;
+        }
+        return StringUtils.replace(str, "'", "''");
+
+    }
+
 
 }

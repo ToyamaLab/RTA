@@ -2,31 +2,42 @@ package rtaclient.parser;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import rtaclient.common.GlobalEnv;
+import net.sf.jsqlparser.JSQLParserException;
+import net.sf.jsqlparser.expression.BinaryExpression;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.Function;
+import net.sf.jsqlparser.expression.Parenthesis;
+import net.sf.jsqlparser.expression.operators.conditional.AndExpression;
+import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
+import net.sf.jsqlparser.expression.operators.relational.Between;
+import net.sf.jsqlparser.expression.operators.relational.ExistsExpression;
+import net.sf.jsqlparser.expression.operators.relational.InExpression;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.select.*;
+import rtaclient.sjmanager.SemiJoinOperation;
 import rtaclient.TableConnector;
-import rtaclient.common.*;
+import rtaclient.common.GlobalEnv;
+import rtaclient.common.Log;
 import rtaclient.db.DBConnect;
+import rtaclient.sjmanager.attributDAGRoot;
+import rtaclient.sjmanager.tableDAGRoot;
 
-import java.io.File;
-import java.io.FileReader;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.sql.*;
-import java.io.FileNotFoundException;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.regex.*;
 
 import javax.xml.parsers.ParserConfigurationException;
 import javax.xml.transform.TransformerException;
-
-import net.sf.jsqlparser.JSQLParserException;
-import net.sf.jsqlparser.expression.*;
-import net.sf.jsqlparser.expression.operators.conditional.*;
-import net.sf.jsqlparser.expression.operators.relational.*;
-import net.sf.jsqlparser.parser.CCJSqlParserUtil;
-import net.sf.jsqlparser.schema.*;
-import net.sf.jsqlparser.statement.select.*;
+import java.io.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class Parser {
 
@@ -34,11 +45,35 @@ public class Parser {
     private String original_query;
     private String tmpDateTime;
     private List<TableConnector> remoteConnector = new ArrayList<>();
-    private TableConnector localConnector;
+    private List<TableConnector> localConnector = new ArrayList<>();
+    private List<SemiJoinOperation> SJPlan= new ArrayList<>();
+    private Map<String, tableDAGRoot> tableDAGRoots = new HashMap<>();
+
+
+    public void printSJPlan(){
+        for(SemiJoinOperation sjOp : SJPlan){
+            sjOp.print();
+        }
+    }
+
+
+    public Map<String, tableDAGRoot> getTableDAGRoots(){ return tableDAGRoots; }
+
+    public List<SemiJoinOperation> getSJPlan(){
+        return SJPlan;
+    }
+
+    public void executeSJOperation(int index){
+        SJPlan.get(index).executeSJ(this);
+    }
 
     public Parser() {
-        localConnector = new TableConnector(GlobalEnv.getDriver(), GlobalEnv.getHost(), GlobalEnv.getUser(), GlobalEnv.getPassword(), GlobalEnv.getDb());
     }
+
+    public void addLocalTC(String tableName){
+        TableConnector tc = new TableConnector(GlobalEnv.getDriver(), GlobalEnv.getHost(), GlobalEnv.getUser(), GlobalEnv.getPassword(), GlobalEnv.getDb(),tableName,null,null);
+    }
+
 
     public int parse(String sql, String datetime) throws SQLException, JSQLParserException, ParserConfigurationException, FileNotFoundException, TransformerException, IOException {
         this.original_query = sql;
@@ -53,17 +88,20 @@ public class Parser {
         // 先頭の#と末尾の半角スペースを消す
         while (m.find()) {
             String str = m.group();  // strは#postal_codeとか
+            System.out.println(str);
             if (str != null && str.length() > 0) {
                 str = str.substring(1, str.length() - 1);  //#postal_code → postal_code
                 TableConnector tc = searchConnector(str);  //TableConnectorはtableの情報，dbmsとかhostとか
                 if (tc == null) {
                     return -1;
                 } else {
-                    tc.setAccessName(str);
+                    //tc.setAccessName(str);
                     remoteConnector.add(tc);
                 }
             }
         }
+
+
 
         original_query = original_query.replace("#", "");
 
@@ -75,22 +113,30 @@ public class Parser {
             return -1;
         }
 
+        System.out.println("DEBUT");
+
+
         setSelectBody(originalSelect.getSelectBody());
+
+        System.out.println("FINI");
 
         // generate SQL
         Log.out("");
-        int tcSize = remoteConnector.size();
-        for (int i = 0; i < tcSize; i++) {
+        for (int i = 0; i < remoteConnector.size(); i++) {
             TableConnector tc = remoteConnector.get(i);
+            tc.print();
             Select tmpSelect = Utils.buildSelect(tc.getFromItems(), tc.getSelectItem(), tc.getWhere());
             tc.setSelect(tmpSelect);
             Log.out("RemoteQuery[" + i + "]: " + tmpSelect);
         }
+        for (int i = 0; i < localConnector.size(); i++) {
+            TableConnector tc = localConnector.get(i);
+            tc.print();
+            Select tmpSelect = Utils.buildSelect(tc.getFromItems(), tc.getSelectItem(), tc.getWhere());
+            tc.setSelect(tmpSelect);
+            Log.out("LocalQuery[" + i + "]: " + tmpSelect);
+        }
 
-        Select localSelect = Utils.buildSelect(localConnector.getFromItems(), localConnector.getSelectItem(), localConnector.getWhere());
-        localConnector.setSelect(localSelect);
-
-        if (!localSelect.toString().equals("null")) Log.out("LocalQuery: " + localSelect);
 
         Log.out("");
 
@@ -109,12 +155,13 @@ public class Parser {
         return original_query;
     }
 
-    public TableConnector getLocalConnector() {
-        return localConnector;
-    }
 
     public List<TableConnector> getRemoteConnector() {
         return remoteConnector;
+    }
+
+    public List<TableConnector> getLocalConnector() {
+        return localConnector;
     }
 
     public void setSelectBody(SelectBody sb) {
@@ -129,6 +176,9 @@ public class Parser {
 
             case "PlainSelect":
                 PlainSelect pl = (PlainSelect) sb;
+                System.out.println("PlainSelect");
+                System.out.println(sb);
+                System.out.println(pl);
                 setPlainSelect(pl);
                 break;
 
@@ -140,27 +190,45 @@ public class Parser {
     }
 
     public void setPlainSelect(PlainSelect pl) {
+        System.out.println("<setPlainSelect>");
         setFrom(pl);
+        TableConnector tc = remoteConnector.get(0);
+        System.out.println("setFrom");
+        tc.print();
         setSelectItem(pl.getSelectItems());
+        tc = remoteConnector.get(0);
+        System.out.println("setSelectItem");
+        tc.print();
         setWhere(pl.getWhere());
+        tc = remoteConnector.get(0);
+        System.out.println("setWhere");
+        tc.print();
         // NOTE: We have to consider DISTINCT, INTO, GROUP BY, ORDER, HAVING, LIMIT, OFFSET,...
+        System.out.println("</setPlainSelect>");
     }
 
+
+
     public void setFrom(PlainSelect pl) {
+        System.out.println("  <setFrom>");
         FromItem fi = pl.getFromItem();
+        System.out.println("aaa"+fi);
         if (fi != null) {
             setNestFrom(fi);
-
             if (pl.getJoins() != null) {
                 List<Join> joins = pl.getJoins();
                 for (Join join : joins) {
+                    System.out.println("bbb"+join);
                     setFromJoin(join);
                 }
             }
         }
+        System.out.println("  </setFrom>");
     }
 
     public void setNestFrom(FromItem fi) {
+        System.out.println("    <setNestFrom>");
+        System.out.println(fi.getClass().getSimpleName());
         switch (fi.getClass().getSimpleName()) {
             case "Table":
                 Table tb = (Table) fi;
@@ -176,6 +244,7 @@ public class Parser {
                             }
                         }
                         if (!alreadyExists) {
+                            System.out.println("AAAADDDDDDD"+tb);
                             tc.addFromItems(tb);
                             remoteFound = true;
                             break;
@@ -192,7 +261,18 @@ public class Parser {
                         default:
                             break;
                     }
-                    localConnector.addFromItems(tb);
+
+                    boolean localFound=false;
+                    for(TableConnector tc : localConnector){
+                        if (tc.getAccessName().equals(tb.getName())) {
+                            localFound = true;
+                        }
+                    }
+                    if (!localFound){
+                        TableConnector tc = new TableConnector(GlobalEnv.getDriver(), GlobalEnv.getHost(), GlobalEnv.getUser(), GlobalEnv.getPassword(), GlobalEnv.getDb(),tb.getName(),null,null);
+                        tc.addFromItems(tb);
+                        localConnector.add(tc);
+                    }
                 }
 
                 break;
@@ -217,26 +297,33 @@ public class Parser {
             case "TableFunction":
                 break;
         }
+        System.out.println("    </setNestFrom>");
     }
 
     public void setFromJoin(Join join) {
         // MEMO: JOINの種類で場合分けする際はjoin.isaLeft()等を用いる
+        System.out.println("     <setFromJoin>");
         FromItem fij = join.getRightItem();
         setNestFrom(fij);
 
         if (join.getOnExpression() != null) {
             setNestExpression(join.getOnExpression());
         }
+        System.out.println("     </setFromJoin>");
     }
 
     public void setSelectItem(List<SelectItem> sis) {
+        System.out.println("<setSelectItem>");
+
         for (SelectItem si : sis) {
             switch (si.getClass().getSimpleName().toString()) {
                 case "AllColumns": /* SELECT * FROM ... */
                     for (TableConnector tc : remoteConnector) {
                         tc.addSelectItems(si);
                     }
-                    localConnector.addSelectItems(si);
+                    for (TableConnector tc : localConnector) {
+                        tc.addSelectItems(si);
+                    }
 
                     break;
 
@@ -247,14 +334,15 @@ public class Parser {
                 case "SelectExpressionItem":
                     SelectExpressionItem sei = (SelectExpressionItem) si;
                     setNestSelect(sei);
-
                     break;
             }
         }
+        System.out.println("</setSelectItem>");
     }
 
     public void setNestSelect(SelectExpressionItem sl) {
         Expression vn = sl.getExpression();
+        System.out.println("getExpression : "+ vn);
         setNestExpression(vn);
     }
 
@@ -266,6 +354,7 @@ public class Parser {
 
     public void setNestExpression(Expression ex) {
         if (ex != null) {
+            System.out.println("setNestExpression : "+ ex.getClass().getSimpleName());
             switch (ex.getClass().getSimpleName()) {
                 case "Parenthsis": /* "(" expression ")" */
                     System.out.println(ex.getClass());
@@ -380,7 +469,14 @@ public class Parser {
                             }
                         }
                         // どのリモートのカラムでも無かったらローカルに
-                        if (!remoteFound && !checkDuplicate(localConnector, col)) localConnector.addSelectItems(item);
+                        if (!remoteFound){
+                            for (TableConnector tc : localConnector) {
+                                if (tableName.equals(tc.getFromItems().get(0).getAlias().getName())) {
+                                    alreadyExists = checkDuplicate(tc, col);
+                                    if (!alreadyExists) tc.addSelectItems(item);
+                                }
+                            }
+                        }
                     }
 
                     break;
@@ -409,26 +505,58 @@ public class Parser {
         return false;
     }
 
+    /**
+     *  The where condition are added to the proper remoteConnector and eventuel SJ operations are set
+     */
     private int separateExpression(BinaryExpression ex) {
+        System.out.println("separateExpression : "+ex);
         boolean leftIsColumn = false, rightIsColumn = false;
         leftIsColumn = isColumn(ex.getLeftExpression());
         rightIsColumn = isColumn(ex.getRightExpression());
 
         int leftIndex = -1, rightIndex = -1;
-        if (leftIsColumn) leftIndex = getMatchRemoteIndex((Column) ex.getLeftExpression());
-        if (rightIsColumn) rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression());
+        if (leftIsColumn) leftIndex = getMatchRemoteIndex((Column) ex.getLeftExpression(),remoteConnector);
+        if (rightIsColumn) rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression(),remoteConnector);
 
-        if (!leftIsColumn && rightIsColumn && rightIndex!=-1) {
+
+
+        if (!leftIsColumn && rightIsColumn && rightIndex!=-1) { // value=att(remote)
             remoteConnector.get(rightIndex).addWhere(ex);
-        } else if (leftIsColumn && !rightIsColumn && leftIndex!=-1 ) {
+        } else if (leftIsColumn && !rightIsColumn && leftIndex!=-1 ) { // att(remote)=value
             remoteConnector.get(leftIndex).addWhere(ex);
+        }if (!leftIsColumn && rightIsColumn && rightIndex==-1) { // value=att(local)
+            rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression(),localConnector);// if the tc is local (index<0), the real Local index is fetched
+            localConnector.get(rightIndex).addWhere(ex);
+        } else if (leftIsColumn && !rightIsColumn && leftIndex==-1 ) { // att(local)=value
+            leftIndex = getMatchRemoteIndex((Column) ex.getLeftExpression(),localConnector);// if the tc is local (index<0), the real Local index is fetched
+            localConnector.get(leftIndex).addWhere(ex);
         } else if (leftIsColumn && rightIsColumn) {
-            if (leftIndex < 0 || rightIndex < 0) {
-            } else if (leftIndex == rightIndex) {
+            if (leftIndex < 0 && rightIndex < 0) { // att(local)=att(local)
+            } else if (leftIndex<0){ // att(local)=att(remote)
+                //if (true) the attributs will be add in the .addAttributToExistingSJop Methode
+                leftIndex = getMatchRemoteIndex((Column) ex.getLeftExpression(),localConnector);  // if the tc is local (index<0), the real Local index is fetched
+                if (!addAttributToExistingSJOp(remoteConnector.get(rightIndex),localConnector.get(leftIndex),ex.getRightExpression(),ex.getLeftExpression())){
+                    SemiJoinOperation op = new SemiJoinOperation(remoteConnector.get(rightIndex),localConnector.get(leftIndex),ex.getRightExpression(),ex.getLeftExpression(),true);
+                    SJPlan.add(op);
+                }
+            } else if (rightIndex<0){ // att(remote)=att(local)
+                rightIndex = getMatchRemoteIndex((Column) ex.getRightExpression(),localConnector);// if the tc is local (index<0), the real Local index is fetched
+                if (!addAttributToExistingSJOp(remoteConnector.get(leftIndex),localConnector.get(rightIndex),ex.getLeftExpression(),ex.getRightExpression())){
+                    SemiJoinOperation op = new SemiJoinOperation(remoteConnector.get(leftIndex),localConnector.get(rightIndex),ex.getLeftExpression(),ex.getRightExpression(),true);
+                    SJPlan.add(op);
+                }
+            } else if (leftIndex == rightIndex) { // att(remoteI)=att(remoteI)
                 remoteConnector.get(leftIndex).addWhere(ex);
+            } else{ // att(remoteJ)=att(remoteI)
+                 if (!addAttributToExistingSJOp(remoteConnector.get(leftIndex),remoteConnector.get(rightIndex),ex.getLeftExpression(),ex.getRightExpression())){
+                    SemiJoinOperation op = new SemiJoinOperation(remoteConnector.get(rightIndex),remoteConnector.get(leftIndex),ex.getRightExpression(),ex.getLeftExpression(),false);
+                    SJPlan.add(op);
+                    op = new SemiJoinOperation(remoteConnector.get(leftIndex),remoteConnector.get(rightIndex),ex.getLeftExpression(),ex.getRightExpression(),false);
+                    SJPlan.add(op);
+                }
             }
         }
-       
+
         return 1;
     }
 
@@ -440,16 +568,20 @@ public class Parser {
         }
     }
 
-    private int getMatchRemoteIndex(Column col) {
+    private int getMatchRemoteIndex(Column col, List<TableConnector> tcSet) {
         String tableName = col.getTable().getName();
         int i = 0;
-        for (TableConnector tc : remoteConnector) {
+        System.out.println("table_name " + tableName);
+        for (TableConnector tc : tcSet) {
             Table t = (Table) tc.getFromItems().get(0);
+            System.out.println(t.getAlias().getName());
             if (tableName.equals(t.getAlias().getName())) {
+                System.out.println("return");
                 return i;
             }
             i++;
         }
+        System.out.println("return -1 ");
         return -1;
     }
     
@@ -472,9 +604,11 @@ public class Parser {
             FileReader rtaFile = new FileReader(filePath);
             Log.out(accessName + ".rta found in " + filePath);
             TableConnector tc = mapper.readValue(rtaFile, TableConnector.class);
+            tc.print();
             rtaFile.close();
             return tc;
         }
+
 
         Log.out(accessName + ".rta does not found.");
         Connection con;
@@ -494,6 +628,8 @@ public class Parser {
                     rs.getString("access_name"), rs.getString("access_method")
 
             );
+
+
             String json = mapper.writeValueAsString(tc);
             FileWriter filewriter = new FileWriter(filePath);
             filewriter.write(json);
@@ -507,5 +643,15 @@ public class Parser {
         DBConnect.close(con);
 
         return tc;
+    }
+
+    public boolean addAttributToExistingSJOp(TableConnector leftTC,TableConnector rightTC, Expression leftEx, Expression rightEx ){
+        boolean alreadyExist=false;
+        for(SemiJoinOperation sj : SJPlan){
+            if (sj.checkAlreadyExist(leftTC,rightTC,leftEx, rightEx)) {
+                alreadyExist=true;
+            }
+        }
+        return alreadyExist;
     }
 }

@@ -26,12 +26,12 @@ Hami
 
 package rtaclient.db;
 
+import com.ibm.icu.text.Transliterator;
+
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.StringJoiner;
-
-import com.ibm.icu.text.Transliterator;
 
 public class DBTablePrinter {
 

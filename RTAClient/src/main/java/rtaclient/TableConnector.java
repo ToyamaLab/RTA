@@ -4,10 +4,15 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import net.sf.jsqlparser.expression.Expression;
 import net.sf.jsqlparser.expression.operators.conditional.OrExpression;
-import net.sf.jsqlparser.statement.select.*;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.Select;
+import net.sf.jsqlparser.statement.select.SelectItem;
+import rtaclient.sjmanager.attributDAGRoot;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @JsonIgnoreProperties(value = {"connector", "fromItems", "selectItems", "where", "select", "sql", "selectItem"}, ignoreUnknown=true)
 public class TableConnector {
@@ -24,11 +29,13 @@ public class TableConnector {
     @JsonProperty("accessmethod")
     private String accessMethod;
 
+
     private String connector = "";
     private List<FromItem> fromItems = new ArrayList<>();
     private List<SelectItem> selectItems = new ArrayList<>();
     private Expression where;
     private Select select;
+    private Map<String, attributDAGRoot> attributDAGRoots = new HashMap<>();
 
     public TableConnector() {
     }
@@ -51,10 +58,18 @@ public class TableConnector {
         this.user = user;
         this.password = password;
         this.dbName = dbName;
-        this.tbName = tbName;
+        this.tbName=tbName;
         this.accessName = accessName;
         this.accessMethod = accessMethod;
     }
+
+    public Map<String, attributDAGRoot> getAttributDAGRoots(){
+        return this.attributDAGRoots;
+    }
+
+    public void setAccessMethod(String method){this.accessMethod=method;}
+
+    public void setTbName(String tbName) {this.tbName=tbName;}
 
     public void setDBMS(String dbms) {
         this.dbms = dbms;
@@ -100,7 +115,7 @@ public class TableConnector {
     	if(this.where == null){
     		this.where = where;
     	}else{
-    		OrExpression orExp = new OrExpression(this.where, where);
+    		OrExpression orExp = new OrExpression(this.where, where); // the parsing doesn't distignuish 'AND' from 'OR', therefor the 'OR' is assumed so that no data is lost, the final query remains with the actual operator
     		this.where = orExp;
     	}
     }
@@ -133,6 +148,10 @@ public class TableConnector {
     	return select.toString();
     }
 
+    public String getTbName() { return this.tbName; }
+
+
+
     public List<FromItem> getFromItems() {
         return fromItems;
     }
@@ -145,6 +164,8 @@ public class TableConnector {
         return where;
     }
 
+    public String getAccessMethod(){return accessMethod;}
+
     public String createConnector() {
         connector += "jdbc:";
         connector += dbms;
@@ -156,5 +177,17 @@ public class TableConnector {
         connector += "useUnicode=true&charcterEncoding=utf8";
 
         return connector;
+    }
+
+
+    public void print() {
+        System.out.println("accessName : "+accessName);
+        System.out.println("fromItems : "+fromItems);
+        System.out.println("selectItems : "+selectItems);
+        System.out.println("where : "+where);
+        System.out.println("select : "+select);
+        System.out.println("accessMethod : "+ accessMethod);
+        System.out.println("host : "+host);
+        System.out.println("tableName"+tbName+"\n");
     }
 }
