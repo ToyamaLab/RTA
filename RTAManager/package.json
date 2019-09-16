@@ -25,7 +25,7 @@
         "fs-extra": "^4.0.2",
         "jquery": "^3.2.1",
         "jquery.easing": "^1.4.1",
-        "morgan": "^1.8.2",
+        "morgan": "^1.9.1",
         "mysql": "^2.14.1",
         "pg-promise": "^6.8.0",
         "popper.js": "1.12.3",
