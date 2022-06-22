@@ -23,7 +23,7 @@
         "express": "^4.15.4",
         "font-awesome": "4.7.0",
         "fs-extra": "^4.0.2",
-        "jquery": "^3.2.1",
+        "jquery": "^3.5.0",
         "jquery.easing": "^1.4.1",
         "morgan": "^1.9.1",
         "mysql": "^2.14.1",
