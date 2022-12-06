@@ -12,7 +12,7 @@
         "url": "https://github.com/shu22203/RTA.git"
     },
     "dependencies": {
-        "body-parser": "^1.18.1",
+        "body-parser": "^1.20.1",
         "bootstrap": "^4.0.0-beta",
         "chart.js": "2.9.4",
         "cookie-parser": "^1.4.3",
@@ -20,7 +20,7 @@
         "datatables.net-bs4": "1.10.15",
         "debug": "^3.1.0",
         "ejs": "^3.1.7",
-        "express": "^4.15.4",
+        "express": "^4.18.2",
         "font-awesome": "4.7.0",
         "fs-extra": "^4.0.2",
         "jquery": "^3.5.0",
@@ -32,7 +32,7 @@
         "serve-favicon": "^2.4.4"
     },
     "devDependencies": {
-        "browser-sync": "2.18.13",
+        "browser-sync": "2.27.10",
         "electron-connect": "^0.6.2",
         "electron-packager": "^9.1.0",
         "electron-prebuilt": "^1.4.13",
