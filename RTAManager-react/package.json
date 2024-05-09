@@ -26,7 +26,7 @@
     "concurrently": "4.1.0",
     "copy-webpack-plugin": "5.0.3",
     "css-loader": "2.1.1",
-    "electron": "18.3.7",
+    "electron": "22.3.25",
     "extract-text-webpack-plugin": "3.0.2",
     "file-loader": "4.0.0",
     "html-webpack-plugin": "5.5.0",
