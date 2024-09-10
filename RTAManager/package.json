@@ -12,7 +12,7 @@
         "url": "https://github.com/shu22203/RTA.git"
     },
     "dependencies": {
-        "body-parser": "^1.18.1",
+        "body-parser": "^1.20.3",
         "bootstrap": "^4.0.0-beta.2",
         "chart.js": "2.9.4",
         "cookie-parser": "^1.4.3",
@@ -20,7 +20,7 @@
         "datatables.net-bs4": "1.10.15",
         "debug": "^3.1.0",
         "ejs": "^3.1.10",
-        "express": "^4.19.2",
+        "express": "^4.20.0",
         "font-awesome": "4.7.0",
         "fs-extra": "^4.0.2",
         "jquery": "^3.5.0",
